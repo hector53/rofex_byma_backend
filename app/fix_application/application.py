@@ -57,7 +57,7 @@ class Application(fix.Application):
         self.targetCompID = target
         self.password = password
         self.account = account
-        self.balance = 0
+        self.balance = {}
         self.responseMassStatus = None
         self.responseSecu = False
         self.responseNewOrder = {}

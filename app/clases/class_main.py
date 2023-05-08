@@ -163,10 +163,10 @@ class MainTask():
         if balance != 0:
             try:
                 self.log.info(f"ahora actualizar la variable ")
-                self.application.balance = balance["detailedAccountReports"][
+                self.application.balance[cuenta] =  balance["detailedAccountReports"][
                         "0"]["currencyBalance"]["detailedCurrencyBalance"]
                 self.log.info(
-                    f"nuevo balance es: {self.application.balance}")
+                    f"nuevo balance es: {self.application.balance[cuenta]}")
             except Exception as e:
                 self.log.error(f"error actualizando balance: {e}")
         else:

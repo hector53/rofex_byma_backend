@@ -475,7 +475,7 @@ class client_request():
         if str(simbolo).endswith("D"):
             moneda = "USD D"
         try:
-            saldo = self.fix.balance[moneda]["available"]
+            saldo = self.fix.balance[self.cuenta][moneda]["available"]
             self.log.info(f"el saldo disponible es: {saldo}")
             return saldo
         except Exception as e:
