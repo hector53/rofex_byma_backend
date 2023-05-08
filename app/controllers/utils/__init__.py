@@ -195,7 +195,11 @@ class UtilsController:
         if getFixTask:
             log.info(f"si existe a session: {id_fix}")
             try:
-                
+                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
+                await getFixTask.botManager.stop_task_by_id(id_bot)
+                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
+                await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
+                log.info(f"fixM: {fixM}")
          
                 log.info(f"borrar ordenes del bot")
                 log.info(f"si existe a bot: {id_bot}")
@@ -218,11 +222,6 @@ class UtilsController:
                     log.info(
                         f"se cancelaron: {contadorOrdenesCanceladas} ordenes")
 
-                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
-                await getFixTask.botManager.stop_task_by_id(id_bot)
-                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
-                await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
-                log.info(f"fixM: {fixM}")
                 response = {"status": True}
             except Exception as e:
                 log.info(
