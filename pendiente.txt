@@ -1,0 +1,5 @@
+falta activar el rofex api rest 
+mongo db en client request 
+la consulta de balance que se hacia con el bot manual, hacerlo en el mismo bot en la funcion 
+que va ser tambien para la bb
+el fix manual no va llevar ciclo infinito 

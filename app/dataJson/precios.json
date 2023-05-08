@@ -1,0 +1,46 @@
+{
+    "AL29": {
+        "precioD": 148, 
+        "precioP": 14800
+    },
+    "AL30": {
+        "precioD": 177, 
+        "precioP": 17000
+    },
+    "AE38": {
+        "precioD": 245,
+        "precioP": 24500
+    },
+    "AL41": {
+        "precioD": 324,
+        "precioP": 32400
+    },
+    "AL35": {
+        "precioD": 122,
+        "precioP": 12257
+    },
+    "GD29": {
+        "precioD": 178,
+        "precioP": 17800
+    },
+    "GD30": {
+        "precioD": 45,
+        "precioP": 4500
+    },
+    "GD46": {
+        "precioD": 369,
+        "precioP": 36987
+    },
+    "GD38": {
+        "precioD": 144,
+        "precioP": 14400
+    },
+    "GD41": {
+        "precioD": 258,
+        "precioP": 25800
+    },
+    "GD35": {
+        "precioD": 333, 
+        "precioP": 33300
+    }
+}
