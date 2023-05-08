@@ -38,6 +38,7 @@ class UtilsController:
             # response = UtilsController.esperar_bot_iniciado(id_fix, id_bot, cuenta)
             # await asyncio.sleep(4)
          #   if response["status"]==True:
+            await asyncio.sleep(4)
             log.info("el bot ha sido iniciado")
             # actualizar el status del bot
             status = 1
