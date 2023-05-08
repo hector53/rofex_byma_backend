@@ -774,7 +774,9 @@ class client_request():
             hora_fin = datetime(hoy.year, hoy.month, hoy.day, 23, 59, 59)
             # Buscar documentos por fecha de hoy
             arrayIntradia = list(self.mongo.db.intradia.find(
-                {"fecha": {"$gte": hora_inicio, "$lt": hora_fin}}))
+                {"fecha": {"$gte": hora_inicio, "$lt": hora_fin}, "id_bot": self.id_bot},
+                
+                ))
         except Exception as e:
             self.log.info(f"error consultando intradia : {e}")
         return arrayIntradia
