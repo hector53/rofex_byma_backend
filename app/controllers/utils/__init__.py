@@ -313,24 +313,25 @@ class UtilsController:
             log.error(f"error: {str(e)}")
         return response
 
-    def editar_bot_ci_48_bb(id_bot, fix, opciones):
+    async def editar_bot_ci_48_bb(id_bot, fix, opciones):
+        from app import fixM
         response = {"status": False}
         id_fix = fix["user"]
         cuenta = fix["account"]
         try:
-            if id_fix in sesionesFix and id_bot in sesionesFix[id_fix].application.triangulos[cuenta]:
-                sesionesFix[id_fix].application.triangulos[cuenta][id_bot].minimum_arbitrage_rate = float(
-                    opciones["minRate"])
-                sesionesFix[id_fix].application.triangulos[cuenta][id_bot].maximum_arbitrage_rate = float(
-                    opciones["maxRate"])
-                sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["type_side"] = int(
-                    opciones["type_side"])
-                sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["editandoBot"] = True
-                time.sleep(1)
+            fixM.main_tasks[id_fix].botManager.main_tasks[id_bot].minimum_arbitrage_rate = float(
+                opciones["minRate"])
+            fixM.main_tasks[id_fix].botManager.main_tasks[id_bot].maximum_arbitrage_rate = float(
+                opciones["maxRate"])
+            fixM.main_tasks[id_fix].botManager.main_tasks[id_bot].botData["type_side"] = int(
+                opciones["type_side"])
+            fixM.main_tasks[id_fix].botManager.main_tasks[id_bot].botData["editandoBot"] = True
             # ahora guardar los datos en db
             result = mongo.db.bots_ejecutandose.update_one(
                 {'_id': ObjectId(id_bot)}, {'$set': {'opciones': opciones}})
             response = {"status": True}
+            task = {"type":0}
+            await fixM.main_tasks[id_fix].botManager.main_tasks[id_bot].add_task(task)
         except Exception as e:
             response = {"status": False, "error": str(e)}
             log.error(f"error: {str(e)}")

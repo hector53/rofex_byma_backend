@@ -118,7 +118,7 @@ class BotsController:
             response = {"status": False, "error": "no existe la sesion"}
         return jsonify(response)
     
-    def edit_bot():
+    async def edit_bot():
         req_obj = request.get_json()
         log.info(f"req_obj: {req_obj}")
         id_bot = req_obj["id_bot"]
@@ -148,7 +148,7 @@ class BotsController:
             if type_bot == 2: 
                 response = UtilsController.editar_bot_ci_ci(id_bot, fix, opciones)
             if type_bot == 3: 
-                response = UtilsController.editar_bot_ci_48_bb(id_bot, fix, opciones)
+                response = await UtilsController.editar_bot_ci_48_bb(id_bot, fix, opciones)
             if response["status"]==False:#retornar abort
                 abort(make_response(jsonify(message=response), 401))
             return jsonify(response)

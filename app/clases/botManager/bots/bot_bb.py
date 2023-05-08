@@ -317,6 +317,7 @@ class botBB(taskSeqManager):
         if task["type"]==0:
             self.log.info(f"aqui si verificamos puntas")
             await self.verificar_puntas()
+    
         await asyncio.sleep(1)
 
     async def detenerBot(self):
