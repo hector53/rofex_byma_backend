@@ -292,7 +292,7 @@ class UtilsController:
             log.error(f"error: {str(e)}")
         return response
 
-    def editar_bot_ci_ci(id_bot, fix, opciones):
+    async def editar_bot_ci_ci(id_bot, fix, opciones):
         response = {"status": False}
         id_fix = fix["user"]
         cuenta = fix["account"]

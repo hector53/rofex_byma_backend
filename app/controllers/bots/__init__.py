@@ -58,12 +58,13 @@ class BotsController:
             else:
                 log.info(f"el bot esta en otro estado asi q lo actualizo")
                 #activar bot 
-                sesionesFix[id_fix].application.triangulos[cuenta][id_bot_ejecutando].botData["soloEscucharMercado"] = soloEscucharMercado
-                sesionesFix[id_fix].application.triangulos[cuenta][id_bot_ejecutando].botData["editandoBot"] = True
+                getFixTask.botManager.main_tasks[id_bot_ejecutando].botData["soloEscucharMercado"] = soloEscucharMercado
+                task = {"type":0}
+                await getFixTask.botManager.main_tasks[id_bot_ejecutando].add_task(task)
                 status = 1
                 if soloEscucharMercado==True: 
                     status = 2
-                DbUtils.update_bot_ejecutandose(id_bot_ejecutando, status)
+                await DbUtils.update_bot_ejecutandose(id_bot_ejecutando, status)
                 response = {"status": True, "msg": "el bot ya se esta ejecutando, actualizamos"}
         else:
             print("no existe la sesion")
@@ -146,7 +147,7 @@ class BotsController:
             if type_bot == 1: 
                 response = UtilsController.editar_bot_ci_48(id_bot, fix, opciones)
             if type_bot == 2: 
-                response = UtilsController.editar_bot_ci_ci(id_bot, fix, opciones)
+                response = await UtilsController.editar_bot_ci_ci(id_bot, fix, opciones)
             if type_bot == 3: 
                 response = await UtilsController.editar_bot_ci_48_bb(id_bot, fix, opciones)
             if response["status"]==False:#retornar abort
