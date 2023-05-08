@@ -227,8 +227,6 @@ class BotsController:
                         "transactTime": {"$regex": f"^{fecha_actual_mas_4h_str}"}
                     }, {"_id": 0})
                     
-                   
-                    
 
                     arrayBook = fixM.main_tasks[fix["user"]].botManager.main_tasks[botE_id]._tickers
                     posiciones = fixM.main_tasks[fix["user"]].botManager.main_tasks[botE_id].botData["posiciones"]

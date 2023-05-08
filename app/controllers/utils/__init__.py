@@ -200,25 +200,8 @@ class UtilsController:
                 log.info(f"borrar ordenes del bot")
                 log.info(f"si existe a bot: {id_bot}")
                 # buscar en db las ordenes de este bot y cancelarlas
-                query = {
-                    "$and": [
-                        {"id_bot": id_bot},
-                        {"cuenta": cuenta},
-                        {"active": True},
-                        {
-                            "$or": [
-                                {"ordStatus": "NEW"},
-                                {
-                                    "$and": [
-                                        {"ordStatus": "PARTIALLY FILLED"},
-                                        {"leavesQty": {"$gt": 0}}
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                }
-                ordenes = mongo.db.ordenes.find_one(query, {"_id": 0})
+              
+                ordenes = mongo.db.ordenes.find_one({"active": True, "id_bot": id_bot, "cuenta": cuenta}, {"_id": 0})
 
                 if ordenes:
                     ordenesBorrar = list(ordenes)
