@@ -168,7 +168,7 @@ class botBB(taskSeqManager):
             self.log.info(f"current_date: {current_date}")
             next_day = self.next_business_day(current_date)
             self.log.info(f"next_day: {next_day}")
-            dias_restantes = (next_day - current_date).days
+            dias_restantes = next_day
             self.log.info(f"dias_restantes: {dias_restantes}")
             close_prices = [((asset_price_48h[i] - asset_price_CI[i]) / asset_price_CI[i]) * 365 / (dias_restantes + 0) for i in range(len(asset_price_48h))]
             self.log.info(f"close_prices: {close_prices}")
@@ -325,40 +325,6 @@ class botBB(taskSeqManager):
         self.threadCola = None
         self.threadBB = None
 
-    def calculate_limit_asset_price_48h(self, asset_price_CI, size_CI, sideBook):
-        self.log.info(f"entrando a calcular limit 48: {asset_price_CI}, {size_CI}, {sideBook}")
-        try: 
-            annualized_arbitrage_rate = self.lowerBB
-            if annualized_arbitrage_rate==None:
-                annualized_arbitrage_rate = self.minimum_arbitrage_rate
-            volume = size_CI #self.get_volume(size_CI)
-            self.log.info(f"volume: {volume}")
-            if sideBook=="OF": 
-                self.log.info(f"sideBook OF")
-                annualized_arbitrage_rate = self.upperBB
-                if annualized_arbitrage_rate==None:
-                    annualized_arbitrage_rate = self.maximum_arbitrage_rate
-                if volume>self.botData["ruedaA"]["sizeDisponible"]:
-                    self.log.info(f"volume>self.botData['ruedaA']['sizeDisponible']")
-                    self.log.info(f"sizeDisponible ruedaA: {self.botData['ruedaA']['sizeDisponible']}")
-                    volume = self.botData["ruedaA"]["sizeDisponible"]
-            else:
-                self.log.info(f"sideBook BI")
-                if volume>self.botData["ruedaB"]["sizeDisponible"]:
-                    self.log.info(f"volume>self.botData['ruedaB']['sizeDisponible']")
-                    self.log.info(f"sizeDisponible ruedaB: {self.botData['ruedaB']['sizeDisponible']}")
-                    volume = self.botData["ruedaB"]["sizeDisponible"]
-            current_date = datetime.datetime.now().date()
-            next_day = self.next_business_day(current_date)
-            dias_restantes = (next_day - current_date).days
-            limit_asset_price_48h = asset_price_CI + (annualized_arbitrage_rate * (dias_restantes + 0) * asset_price_CI / 365)
-            self.update_limits("48", limit_asset_price_48h, sideBook )
-            
-            return round(self.redondeo_tick(limit_asset_price_48h, self.botData["minPriceIncrement"]),2), volume
-        except Exception as e: 
-            self.log.error(f"error calculando limit 48: {e}")
-            return 0,0
-
     def calculate_limit_asset_price_CI(self, asset_price_48h, size_48h, sideBook, market_price_ci):
         self.log.info(f"entrando a calculate_limit_asset_price_CI: {asset_price_48h}, {size_48h}, {sideBook}, {market_price_ci}")
         try: 
@@ -387,7 +353,7 @@ class botBB(taskSeqManager):
             self.log.info(f"current_date: {current_date}")
             next_day = self.next_business_day(current_date)
             self.log.info(f"next_day: {next_day}")
-            dias_restantes = (next_day - current_date).days
+            dias_restantes = next_day #aqui es 
             self.log.info(f"dias_restantes: {dias_restantes}")
             limit_asset_price_CI = asset_price_48h - (annualized_arbitrage_rate * (dias_restantes + 0) / 365) * market_price_ci
             self.log.info(f"limit_asset_price_CI: {limit_asset_price_CI}")
@@ -396,7 +362,41 @@ class botBB(taskSeqManager):
         except Exception as e:
             self.log.error(f"error calculando limit ci: {e}")
             return 0,0
-
+    
+    def calculate_limit_asset_price_48h(self, asset_price_CI, size_CI, sideBook):
+        self.log.info(f"entrando a calcular limit 48: {asset_price_CI}, {size_CI}, {sideBook}")
+        try: 
+            annualized_arbitrage_rate = self.lowerBB
+            if annualized_arbitrage_rate==None:
+                annualized_arbitrage_rate = self.minimum_arbitrage_rate
+            volume = size_CI #self.get_volume(size_CI)
+            self.log.info(f"volume: {volume}")
+            if sideBook=="OF": 
+                self.log.info(f"sideBook OF")
+                annualized_arbitrage_rate = self.upperBB
+                if annualized_arbitrage_rate==None:
+                    annualized_arbitrage_rate = self.maximum_arbitrage_rate
+                if volume>self.botData["ruedaA"]["sizeDisponible"]:
+                    self.log.info(f"volume>self.botData['ruedaA']['sizeDisponible']")
+                    self.log.info(f"sizeDisponible ruedaA: {self.botData['ruedaA']['sizeDisponible']}")
+                    volume = self.botData["ruedaA"]["sizeDisponible"]
+            else:
+                self.log.info(f"sideBook BI")
+                if volume>self.botData["ruedaB"]["sizeDisponible"]:
+                    self.log.info(f"volume>self.botData['ruedaB']['sizeDisponible']")
+                    self.log.info(f"sizeDisponible ruedaB: {self.botData['ruedaB']['sizeDisponible']}")
+                    volume = self.botData["ruedaB"]["sizeDisponible"]
+            current_date = datetime.datetime.now().date()
+            next_day = self.next_business_day(current_date)
+            dias_restantes = next_day
+            limit_asset_price_48h = asset_price_CI + (annualized_arbitrage_rate * (dias_restantes + 0) * asset_price_CI / 365)
+            self.update_limits("48", limit_asset_price_48h, sideBook )
+            
+            return round(self.redondeo_tick(limit_asset_price_48h, self.botData["minPriceIncrement"]),2), volume
+        except Exception as e: 
+            self.log.error(f"error calculando limit 48: {e}")
+            return 0,0
+    
     async def verificar_size_rueda(self, symbol, side):
         response = False
         if symbol==self.botData["byma48h"]:
@@ -740,11 +740,12 @@ class botBB(taskSeqManager):
     def next_business_day(self, current_date):
         # Calcular el próximo día hábil a partir del día actual
         if current_date.weekday() >= 3:
-            # Si es jueves, el próximo día hábil es el lunes
-            next_day = current_date + datetime.timedelta(days=(7 - current_date.weekday()))
+            # Si es jueves o viernes, el próximo día hábil en 48h es 4 días después
+            next_day = 4
         else:
             # En otro caso, el próximo día hábil es el siguiente día
-            next_day = current_date + datetime.timedelta(days=2)
+            next_day = 2
+
         return next_day
 
     def update_limits(self, symbol, price, sideBook): 
