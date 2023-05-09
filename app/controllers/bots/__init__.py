@@ -162,7 +162,7 @@ class BotsController:
         response = {"status": True}
         try:
             if fix["active"]==1:
-                await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
+              #  await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
                 #ahora cancelar las ordenes abiertas 
                 response = await UtilsController.detener_bot_by_id(fix, id_bot)
             else:

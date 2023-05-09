@@ -31,6 +31,7 @@ class client_request():
         self.cola = Cola()
         self.colaOperadas = Cola()
         self.clOrdIdEsperar = {}
+        self.codigoSuscribir = ""
 
     def round05(self, number):
         numero_redondeado = round(number*2)/2
@@ -161,6 +162,7 @@ class client_request():
             "-"+self.randomString(4)
         status = await self.fix.marketDataRequest(entries=[0, 1], symbols=symbols, subscription=1,
                                     depth=5, updateType=0, uniqueID=codigo,id_bot=self.id_bot)
+        self.codigoSuscribir = codigo
         return status
        
 

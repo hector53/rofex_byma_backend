@@ -187,25 +187,24 @@ class UtilsController:
 
     async def detener_bot_by_id(fix, id_bot):
         from app import fixM
+        from app.clases.class_main import MainTask
         log.info(f"entrando a detener bot byid: {id_bot} ")
         response = {"status": False}
         id_fix = fix["user"]
         cuenta = fix["account"]
         log.info(f"fixM: {fixM}")
-        getFixTask = await fixM.get_fixTask_by_id_user(id_fix)
+        getFixTask:MainTask = await fixM.get_fixTask_by_id_user(id_fix)
         if getFixTask:
             log.info(f"si existe a session: {id_fix}")
             try:
-                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
-                await getFixTask.botManager.stop_task_by_id(id_bot)
-                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
-                await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
-                log.info(f"fixM: {fixM}")
+                
          
                 log.info(f"borrar ordenes del bot")
                 log.info(f"si existe a bot: {id_bot}")
                 # buscar en db las ordenes de este bot y cancelarlas
-              
+                log.info("pausar y detener cola del bot")
+                await getFixTask.botManager.main_tasks[id_bot].pause()
+                await getFixTask.botManager.main_tasks[id_bot].detenerBot() 
                 ordenes = mongo.db.ordenes.find({"active": True, "id_bot": id_bot, "cuenta": cuenta}, {"_id": 0})
 
                 if ordenes:
@@ -222,6 +221,15 @@ class UtilsController:
                             contadorOrdenesCanceladas += 1
                     log.info(
                         f"se cancelaron: {contadorOrdenesCanceladas} ordenes")
+                    
+                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
+                codigoSuscribir = getFixTask.botManager.main_tasks[id_bot].clientR.codigoSuscribir
+                log.info(f"borrar suscripcion : {getFixTask.application.suscripcionId[codigoSuscribir]} ")
+                del getFixTask.application.suscripcionId[codigoSuscribir]
+                await getFixTask.botManager.stop_task_by_id(id_bot)
+                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
+                await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
+                log.info(f"fixM: {fixM}")
 
                 response = {"status": True}
             except Exception as e:

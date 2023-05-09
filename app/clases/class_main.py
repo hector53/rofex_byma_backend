@@ -197,15 +197,20 @@ class MainTask():
         aqui agregamos tarea a la cola del bot para verificar puntas, pero primero actualizamos tickers en el bot """)
         #task = {"type": 0, "symbolTicker": symbolTicker, "marketData": data["marketData"], 
                     #   "id_bot": self.suscripcionId[MDReqID]["id_bot"] }
+        self.log.info(f"self.botManager.tasks: {self.botManager.tasks}")
+        self.log.info(f"self.botManager.main_tasks: {self.botManager.main_tasks}")            
         symbolTicker = task["symbolTicker"]
         marketData = task["marketData"]
-        self.log.info(f"tickers antes: {self.botManager.main_tasks[id_bot]._tickers[symbolTicker]}")
-        self.botManager.main_tasks[id_bot]._tickers[symbolTicker] = marketData
-        self.log.info(f"tickers despues: {self.botManager.main_tasks[id_bot]._tickers[symbolTicker]}")
-        self.log.info(f"ahora si agregamos tarea al bot para verificar puntas")
-        if self.botManager.main_tasks[id_bot].botData["botIniciado"]==True and self.botManager.main_tasks[id_bot].botData["soloEscucharMercado"]==False:
-            await self.botManager.main_tasks[id_bot].add_task(task)
-        self.log.info(f"listo tarea agregada al bot")
+        if id_bot in self.botManager.main_tasks:
+            self.log.info(f"tickers antes: {self.botManager.main_tasks[id_bot]._tickers[symbolTicker]}")
+            self.botManager.main_tasks[id_bot]._tickers[symbolTicker] = marketData
+            self.log.info(f"tickers despues: {self.botManager.main_tasks[id_bot]._tickers[symbolTicker]}")
+            self.log.info(f"ahora si agregamos tarea al bot para verificar puntas")
+            if self.botManager.main_tasks[id_bot].botData["botIniciado"]==True and self.botManager.main_tasks[id_bot].botData["soloEscucharMercado"]==False:
+                await self.botManager.main_tasks[id_bot].add_task(task)
+            self.log.info(f"listo tarea agregada al bot")
+        else:
+            self.log.error("el bot no esta en el botManager quizas ya se detuvo")
        # await asyncio.sleep(0.1)
 
     async def process_message(self, task):
@@ -214,7 +219,7 @@ class MainTask():
             await self.update_tickers_bot(task)
 
         if task["type"]==1: 
-            self.log.info("procesando orden filled ")
+            self.log.info(f"procesando task orden filled {task}")
             #task = {"type": 1,  "id_bot": id_bot, "typeOrder": typeOrder, "cuenta": accountFixMsg, "details": details }
             #es una orden filled o partial
             #pausar cola de bot
@@ -223,13 +228,16 @@ class MainTask():
             typeOrder = task["typeOrder"]
             lastOrderID = task["lastOrderID"]
             if typeOrder == "N":
-                self.log.info(f"pausar cola del bot ")
+                self.log.info(f"pausar cola del bot :{self.botManager.main_tasks[id_bot].paused}")
                 await self.botManager.main_tasks[id_bot].pause()
+                self.log.info(f"paused:{self.botManager.main_tasks[id_bot].paused}")
                 self.log.info(f"mandar a verificar orden para q opere contraria, hacerlo en nueva hilo")
                 taskOperada = asyncio.create_task(self.botManager.main_tasks[id_bot].verificar_orden_operada(details,typeOrder, lastOrderID))
                 response = await taskOperada
                 self.log.info(f"luego q termino de verificar la operada y operar la contraria quito el pause")
+                self.log.info(f"paused:{self.botManager.main_tasks[id_bot].paused}")
                 await self.botManager.main_tasks[id_bot].resume()
+                self.log.info(f"paused:{self.botManager.main_tasks[id_bot].paused}")
             elif typeOrder == "B":
                 self.log.info(f"esta es una contraria, aqui ya denbe estar en pause solo mando a verificar en un nuevo hilo")
                 taskOperada = asyncio.create_task(self.botManager.main_tasks[id_bot].verificar_orden_operada(details,typeOrder, lastOrderID))

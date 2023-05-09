@@ -86,20 +86,14 @@ class FixManualController:
         else:
             abort(make_response(jsonify(message="manual no activo"), 401))
 
-    def manua_mass_cancel():
+    async def manua_mass_cancel():
+        from app import fixM
         req_obj = request.get_json()
         print(req_obj)
         id_fix = req_obj['id_fix']
         marketSegment = req_obj['marketSegment']
-        if 0 in sesionesFix[id_fix].application.triangulos:
-            clientR = sesionesFix[id_fix].application.triangulos[0].clientR
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            response = loop.run_until_complete(clientR.mass_cancel_request(marketSegment))
-            loop.close()
-            return response
-        else:
-            abort(make_response(jsonify(message="manual no activo"), 401))
+        await fixM.main_tasks[id_fix].application.orderMassCancelRequest(marketSegment=marketSegment)
+        return jsonify({"status":True})
 
     def manua_get_posiciones(id):
         id_fix = id

@@ -8,10 +8,12 @@ class botManager:
         self.log = logging.getLogger("botManager")
 
     async def add_task(self, task):
-        self.log.info(f"entrando a addtask del botManager: {task}")
+        self.main_tasks[task.id] = task
+
+        self.log.info(f"entrando a addtask del botManager: {task}, ya lo agregue al maintask: {self.main_tasks}")
         await self.tasks.put(task)
         task.taskToCancel = asyncio.create_task(task.run())
-        self.main_tasks[task.id] = task
+        
 
     async def remove_task(self, task):
         self.tasks.remove(task)
@@ -38,7 +40,6 @@ class botManager:
             task = await self.tasks.get()
             if task.id == id:
                 task.taskToCancel.cancel()
-                await self.main_tasks[id].detenerBot() 
                 del self.main_tasks[id]
                 gc.collect()
                 self.log.info(f"se borro la tarea correctamente")

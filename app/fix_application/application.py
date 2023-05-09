@@ -2394,7 +2394,7 @@ class Application(fix.Application):
         logfix.info(f"mensaje antes de enviarlo: {msgCompilado}")
         fix.Session.sendToTarget(msg)
 
-    def orderMassCancelRequest(self, marketSegment):
+    async def orderMassCancelRequest(self, marketSegment):
         """
         Order Mass Cancel Request
 
