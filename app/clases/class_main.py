@@ -229,14 +229,22 @@ class MainTask():
             lastOrderID = task["lastOrderID"]
             if typeOrder == "N":
                 self.log.info(f"pausar cola del bot :{self.botManager.main_tasks[id_bot].paused}")
-                await self.botManager.main_tasks[id_bot].pause()
+                self.log.info(f"contadorOperada: {self.botManager.main_tasks[id_bot].contadorOperada}")
+                if self.botManager.main_tasks[id_bot].contadorOperada == 0:
+                    self.log.info(f"contador = 0, pongo pausa")
+                    await self.botManager.main_tasks[id_bot].pause()
+                self.botManager.main_tasks[id_bot].contadorOperada+=1
                 self.log.info(f"paused:{self.botManager.main_tasks[id_bot].paused}")
                 self.log.info(f"mandar a verificar orden para q opere contraria, hacerlo en nueva hilo")
                 taskOperada = asyncio.create_task(self.botManager.main_tasks[id_bot].verificar_orden_operada(details,typeOrder, lastOrderID))
                 response = await taskOperada
                 self.log.info(f"luego q termino de verificar la operada y operar la contraria quito el pause")
                 self.log.info(f"paused:{self.botManager.main_tasks[id_bot].paused}")
-                await self.botManager.main_tasks[id_bot].resume()
+                self.botManager.main_tasks[id_bot].contadorOperada-=1
+                self.log.info(f"contadorOperada: {self.botManager.main_tasks[id_bot].contadorOperada}")
+                if self.botManager.main_tasks[id_bot].contadorOperada == 0:
+                    self.log.info(f"contador = 0, pongo resume")
+                    await self.botManager.main_tasks[id_bot].resume()
                 self.log.info(f"paused:{self.botManager.main_tasks[id_bot].paused}")
             elif typeOrder == "B":
                 self.log.info(f"esta es una contraria, aqui ya denbe estar en pause solo mando a verificar en un nuevo hilo")

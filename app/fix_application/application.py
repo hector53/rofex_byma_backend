@@ -905,6 +905,7 @@ class Application(fix.Application):
         if clientOrderID in self.clOrdIdEsperar:
             self.clOrdIdEsperar[clientOrderID]["llegoRespuesta"] = True
             self.clOrdIdEsperar[clientOrderID]["data"] = details
+            self.clOrdIdEsperar[clientOrderID]["lastQty"] = self.clOrdIdEsperar[clientOrderID]["lastQty"] + details["lastQty"]
 
         
 
@@ -1251,7 +1252,7 @@ class Application(fix.Application):
                 del self.marketRequest[MDReqID]
             logfix.info(f"self.marketRequest: {self.marketRequest}")
 
-        logfix.info("envio a la cola para q envie al bot")
+        logfix.info(f"envio a la cola para q envie al bot: {self.suscripcionId}")
         if MDReqID in self.suscripcionId:
             #self.suscripcionId[unicID] = {"simbolos": symbols, "id_bot": id_bot}
             task = {"type": 0, "symbolTicker": symbolTicker, "marketData": data["marketData"], 
@@ -2010,24 +2011,28 @@ class Application(fix.Application):
         try:
             logfix.info(f"esperando respuesta de {typeOrder}, con el clOrdId: {clOrdId}")
             contador = 0
+            contadorParcial = 0
             while True:
-                await asyncio.sleep(0.5)
+                
                 if self.clOrdIdEsperar[clOrdId]["llegoRespuesta"] == True:
-                    if self.clOrdIdEsperar[clOrdId]["type"] == 0:
-                        logfix.info("llego respuesta de new order")
-                    if self.clOrdIdEsperar[clOrdId]["type"] == 1:
-                        logfix.info("llego respuesta de modify order")
-                    if self.clOrdIdEsperar[clOrdId]["type"] == 2:
-                        logfix.info("llego respuesta de cancelar order")
-                    response = self.clOrdIdEsperar[clOrdId]
-                    del self.clOrdIdEsperar[clOrdId]
-                    break
+                    if contadorParcial>2:
+                        if self.clOrdIdEsperar[clOrdId]["type"] == 0:
+                            logfix.info("llego respuesta de new order")
+                        if self.clOrdIdEsperar[clOrdId]["type"] == 1:
+                            logfix.info("llego respuesta de modify order")
+                        if self.clOrdIdEsperar[clOrdId]["type"] == 2:
+                            logfix.info("llego respuesta de cancelar order")
+                        response = self.clOrdIdEsperar[clOrdId]
+                        del self.clOrdIdEsperar[clOrdId]
+                        break
+                    contadorParcial+=1
                 contador+=1
                 if contador > 20:
                     logfix.info(f"tiempo excedido esperando respuesta para: {typeOrder}, con el clOrdId: {clOrdId} ")
                     response = {
                         "llegoRespuesta": False, "msg": "tiempo excedido, no llego respuesta o algo mas paso"}
                     break
+                await asyncio.sleep(0.5)
         except Exception as e:
             logfix.error(f"error en esperarRespuesta: {e}")
         return response
@@ -2100,7 +2105,7 @@ class Application(fix.Application):
                    'ordType': orderType
                    }
         
-        self.clOrdIdEsperar[clOrdId] = {"clOrdId": clOrdId, "type": 0, "details": details, "llegoRespuesta": False}
+        self.clOrdIdEsperar[clOrdId] = {"clOrdId": clOrdId, "type": 0, "details": details, "llegoRespuesta": False, "lastQty": 0}
         if orderType == 1:
             print("es una orden market ---------------")
         if orderType == 2:
@@ -2520,10 +2525,11 @@ class Application(fix.Application):
         # -----------------------------------------
 
         fix.Session.sendToTarget(msg)
-
-        task = asyncio.create_task(self.esperar_respuesta_mercado(unicID))
-        # Esperar a que la tarea asincrónica termine y devuelva su resultado
-        response = await task
+        if subscription<2:
+            task = asyncio.create_task(self.esperar_respuesta_mercado(unicID))
+            # Esperar a que la tarea asincrónica termine y devuelva su resultado
+            response = await task
+        response = {"status": True}
         return response
 
     def securityListRequest(self, criteria=4, symbol="", cficode=None, subscription=fix.SubscriptionRequestType_SNAPSHOT):

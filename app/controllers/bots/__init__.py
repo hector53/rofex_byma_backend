@@ -50,7 +50,7 @@ class BotsController:
                 if type_bot == 0:#triangulo
                     response = UtilsController.iniciar_bot_triangulo(id_fix, id_bot_ejecutando, cuenta, symbols, opciones, soloEscucharMercado)
                 if type_bot == 1:#CI-48
-                    response = UtilsController.iniciar_bot_ci_48(id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado)
+                    response = await UtilsController.iniciar_bot_ci_48(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
                 if type_bot == 2:#CI-48
                     response = UtilsController.iniciar_bot_ci_ci(id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado)
                 if type_bot == 3:#CI-48-BB
@@ -145,7 +145,7 @@ class BotsController:
             if type_bot == 0: 
                 response = UtilsController.editar_bot_triangulo(id_bot, fix, opciones)
             if type_bot == 1: 
-                response = UtilsController.editar_bot_ci_48(id_bot, fix, opciones)
+                response = await UtilsController.editar_bot_ci_48(id_bot, fix, opciones)
             if type_bot == 2: 
                 response = await UtilsController.editar_bot_ci_ci(id_bot, fix, opciones)
             if type_bot == 3: 
@@ -160,17 +160,16 @@ class BotsController:
         id_bot = req_obj["id"]
         fix = req_obj["fix"]
         response = {"status": True}
-        try:
-            if fix["active"]==1:
-              #  await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
-                #ahora cancelar las ordenes abiertas 
-                response = await UtilsController.detener_bot_by_id(fix, id_bot)
-            else:
-                log.info("fix no esta activa, entonces actualizo solo en db ")
-                await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
-                response = {"status": True}
-        except Exception as e: 
-            log.error(f"error en detener bot: {e}")
+   
+        if fix["active"]==1:
+            #  await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
+            #ahora cancelar las ordenes abiertas 
+            response = await UtilsController.detener_bot_by_id(fix, id_bot)
+        else:
+            log.info("fix no esta activa, entonces actualizo solo en db ")
+            await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
+            response = {"status": True}
+        
         return jsonify(response)
     
     @jwt_required()

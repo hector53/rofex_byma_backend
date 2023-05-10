@@ -9,7 +9,7 @@ import datetime
 import statistics
 
 
-class botBB(taskSeqManager):
+class botCi48(taskSeqManager):
     def __init__(self, bymaCI, byma48h, minimum_arbitrage_rate, maximum_arbitrage_rate, f, id_bot, cuenta, mongo):
         super().__init__()
         self.minimum_arbitrage_rate = float(minimum_arbitrage_rate)
@@ -121,168 +121,6 @@ class botBB(taskSeqManager):
             self.log.error(f"error creando tareas iniciales: {e}")
             return False
 
-    async def operar_con_bb(self):
-        try:
-            # await self.clientR.esperar_orden_operada()
-            self.log.info("entrando a operar con bb")
-            # necesito captura de el last q invetamos de ci y 48
-            # necesito las 4 puntas del book guardarlas
-            symbolCi = self.botData["bymaCI"]
-            symbol48 = self.botData["byma48h"]
-            price_ci_bi = self._tickers[symbolCi]["BI"][0]["price"]
-            price_ci_of = self._tickers[symbolCi]["OF"][0]["price"]
-            price_48_bi = self._tickers[symbol48]["BI"][0]["price"]
-            price_48_of = self._tickers[symbol48]["OF"][0]["price"]
-            self.log.info(f"price_ci_bi: {price_ci_bi}")
-            self.log.info(f"price_ci_of: {price_ci_of}")
-            self.log.info(f"price_48_bi: {price_48_bi}")
-            self.log.info(f"price_48_of: {price_48_of}")
-
-            # aqui traigo de la db estos datos
-            bbDataUL = await self.clientR.get_intradia_hoy()
-
-            if self.botData["ordenOperada"] > 0:
-                return
-            bb_ci_actual = (price_ci_bi + price_ci_of) / 2
-            bb_48_actual = (price_48_bi + price_48_of) / 2
-            self.log.info(f"bb_ci: {bb_ci_actual}")
-            self.log.info(f"bb_48: {bb_48_actual}")
-            bb_ci_lista = []
-            bb_48_lista = []
-            if len(bbDataUL) > 0:
-                for x in bbDataUL:
-                    bb_ci_lista.append(x["bb_ci"])
-                    bb_48_lista.append(x["bb_48"])
-            else:
-                bb_ci_lista.append(bb_ci_actual)
-                bb_48_lista.append(bb_48_actual)
-            bb_ci_lista.append(bb_ci_actual)
-            bb_48_lista.append(bb_48_actual)
-         #   self.bb_ci.append(bb_ci_actual)
-          #  self.bb_48.append(bb_48_actual)
-            self.log.info(f"bb_ci_lista: {bb_ci_lista}")
-            self.log.info(f"bb_48_lista: {bb_48_lista}")
-
-            asset_price_48h = bb_48_lista[-180:]
-            asset_price_CI = bb_ci_lista[-180:]
-            self.log.info(f"asset_price_48h: {asset_price_48h}")
-            self.log.info(f"asset_price_CI: {asset_price_CI}")
-            current_date = datetime.datetime.now().date()
-            self.log.info(f"current_date: {current_date}")
-            next_day = self.next_business_day(current_date)
-            self.log.info(f"next_day: {next_day}")
-            dias_restantes = next_day
-            self.log.info(f"dias_restantes: {dias_restantes}")
-            close_prices = [((asset_price_48h[i] - asset_price_CI[i]) / asset_price_CI[i])
-                            * 365 / (dias_restantes + 0) for i in range(len(asset_price_48h))]
-            self.log.info(f"close_prices: {close_prices}")
-
-            if len(close_prices) < 2:
-                self.log.info(f"close prices < 2")
-                return
-            mean = statistics.mean(close_prices)
-            std = statistics.stdev(close_prices)
-            upper = mean + (std * self.maximum_arbitrage_rate)
-            self.upperBB = upper
-            lower = mean - (std * self.minimum_arbitrage_rate)
-            self.lowerBB = lower
-            self.log.info(f"upper: {upper}")
-            self.log.info(f"lower: {lower}")
-            latest_asset_price_48h = asset_price_48h[-1]
-            latest_asset_price_ci = asset_price_CI[-1]
-            self.log.info(f"latest_asset_price_48h: {latest_asset_price_48h}")
-            self.log.info(f"latest_asset_price_ci: {latest_asset_price_ci}")
-            # limit BID CI: Escuchas BID 48h y ASK CI para el calculo
-            latest_limit_asset_price_CI_BID = price_48_bi - \
-                (upper * (dias_restantes + 0) / 365) * price_ci_of
-            # limit ASK CI: Escuchas ASK 48h y BID CI para el calculo
-            latest_limit_asset_price_CI_ASK = price_48_of - \
-                (lower * (dias_restantes + 0) / 365) * price_ci_bi
-            self.log.info(
-                f"New limit CI: BID estrategia: {latest_limit_asset_price_CI_BID}")
-            self.log.info(
-                f"New limit CI: ASK estrategia: {latest_limit_asset_price_CI_ASK}")
-            # limit BID 48h: Escuchas BID CI y ASK 48h para el calculo. Aca no te pide 48h igualmente.
-            latest_limit_asset_price_48h_BID = price_ci_bi + \
-                (lower * (dias_restantes + 0) * price_ci_bi / 365)
-            # limit ASK 48h: Escuchas ASK CI y BID 48h para el calculo. Aca no te pide 48h igualmente.
-            latest_limit_asset_price_48h_ASK = price_ci_of + \
-                (upper * (dias_restantes + 0) * price_ci_of / 365)
-            self.log.info(
-                f"New limit 48: BID estrategia: {latest_limit_asset_price_48h_BID}")
-            self.log.info(
-                f"New limit 48: ASK estrategia: {latest_limit_asset_price_48h_ASK}")
-            self.log.info("----------datos para la BB----------")
-            bid_estrategia = ((price_48_bi - price_ci_of) /
-                              price_ci_of) * 365 / (dias_restantes + 0)
-            ask_estrategia = ((price_48_of - price_ci_bi) /
-                              price_ci_bi) * 365 / (dias_restantes + 0)
-            """
-            
-            """
-            self.log.info(
-                f"        upper: {upper}            lower: {lower}            media: {close_prices[-1:]}            bid_estrategia: {bid_estrategia}            ask_estrategia: {ask_estrategia}          ")
-            bookBB = {
-                "price_ci_bi": price_ci_bi,
-                "price_ci_of": price_ci_of,
-                "price_48_bi": price_48_bi,
-                "price_48_of": price_48_of
-            }
-
-            self.log.info(f"bookBB: {bookBB}")
-            dataBB = {
-                "label": str(datetime.datetime.now()),
-                "upper": upper,
-                "lower": lower,
-                "media": close_prices[-1:][0],
-                "bid_estrategia": bid_estrategia,
-                "ask_estrategia": ask_estrategia,
-            }
-            self.log.info(f"dataBB: {dataBB}")
-            limitsBB = {
-                "bi_ci": latest_limit_asset_price_CI_BID,
-                "of_ci": latest_limit_asset_price_CI_ASK,
-                "bi_48": latest_limit_asset_price_48h_BID,
-                "of_48": latest_limit_asset_price_48h_ASK
-            }
-            self.botData["limitsBB"] = limitsBB
-            self.log.info(f"limitsBB: {limitsBB}")
-            captureDatosBB = {
-                "fecha": datetime.datetime.today().date(),
-                "book": bookBB,
-                "dataBB": dataBB,
-                "limitsPuntas": limitsBB,
-                "bb_ci": bb_ci_actual,
-                "bb_48": bb_48_actual
-            }
-          #  self.capture_datos_bb = captureDatosBB
-            self.log.info(f"voy a guardar datos intradia: {captureDatosBB}")
-            await self.clientR.guardar_datos_bb_intradia(captureDatosBB)
-            # if self.botData["soloEscucharMercado"]==True:
-            dataMd = {"type": "bb", "instrumentId": {
-                "symbol": self.botData["bymaCI"]}}
-            self.fix.server_md.broadcast(str(dataMd))
-            return
-
-        except Exception as e:
-            self.log.error(f"error en operar con bb: {e}")
-
-    async def run_forever_bb(self):
-        try:
-            while not self.stop.is_set():
-                self.log.info("estoy en el ciclo inifito del bot BB")
-         #       await self.pausedBB.wait()
-                if self.paused.is_set():
-                    await self.operar_con_bb()
-                await asyncio.sleep(10)
-            #    self.log.info(f"sin task en la cola del bot: {self.id}")
-        except Exception as e:
-            self.log.error(
-                f"error en el ciclo run_forever del botBB con id: {self.id} , {e}")
-        finally:
-            self.log.info(
-                f"saliendo del ciclo run forever del botBB con id: {self.id}")
-
     async def run_forever(self):
         try:
             if await self.tareas_de_inicio() == False:
@@ -307,19 +145,10 @@ class botBB(taskSeqManager):
         try:
             self.threadCola = Thread(target=self.startCola)
             self.threadCola.start()
-            self.threadBB = Thread(target=self.startLoopBB)
-            self.threadBB.start()
         finally:
             self.log.info(
                 "saliendo de la tarea iniciada en el botmanager pero queda la thread")
 
-    def startLoopBB(self):
-        # creo un nuevo evento para asyncio y asi ejecutar todo de aqui en adelante con async await
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        # ejecuto la funcion q quiero
-        loop.run_until_complete(self.run_forever_bb())
-        loop.close()
 
     def startCola(self):
         # creo un nuevo evento para asyncio y asi ejecutar todo de aqui en adelante con async await
@@ -347,16 +176,12 @@ class botBB(taskSeqManager):
         self.log.info(
             f"entrando a calculate_limit_asset_price_CI: {asset_price_48h}, {size_48h}, {sideBook}, {market_price_ci}")
         try:
-            annualized_arbitrage_rate = self.lowerBB
-            if annualized_arbitrage_rate == None:
-                annualized_arbitrage_rate = self.minimum_arbitrage_rate
+            annualized_arbitrage_rate = self.minimum_arbitrage_rate
             volume = self.get_volume(size_48h)
             self.log.info(f"volume: {volume}")
             if sideBook == "BI":
                 self.log.info(f"sideBook BI")
-                annualized_arbitrage_rate = self.upperBB
-                if annualized_arbitrage_rate == None:
-                    annualized_arbitrage_rate = self.maximum_arbitrage_rate
+                annualized_arbitrage_rate = self.maximum_arbitrage_rate
                 if volume > self.botData["ruedaA"]["sizeDisponible"]:
                     self.log.info(
                         f"volume>self.botData['ruedaA']['sizeDisponible']")
@@ -392,16 +217,12 @@ class botBB(taskSeqManager):
         self.log.info(
             f"entrando a calcular limit 48: {asset_price_CI}, {size_CI}, {sideBook}")
         try:
-            annualized_arbitrage_rate = self.lowerBB
-            if annualized_arbitrage_rate == None:
-                annualized_arbitrage_rate = self.minimum_arbitrage_rate
+            annualized_arbitrage_rate = self.minimum_arbitrage_rate
             volume = size_CI  # self.get_volume(size_CI)
             self.log.info(f"volume: {volume}")
             if sideBook == "OF":
                 self.log.info(f"sideBook OF")
-                annualized_arbitrage_rate = self.upperBB
-                if annualized_arbitrage_rate == None:
-                    annualized_arbitrage_rate = self.maximum_arbitrage_rate
+                annualized_arbitrage_rate = self.maximum_arbitrage_rate
                 if volume > self.botData["ruedaA"]["sizeDisponible"]:
                     self.log.info(
                         f"volume>self.botData['ruedaA']['sizeDisponible']")

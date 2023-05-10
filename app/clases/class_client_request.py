@@ -153,13 +153,20 @@ class client_request():
         return clOrdId
 
     
+    async def suscribir_mercado_off(self, symbols, codigo):  # suscribe a mercado
+        status = {"status": False}
+        self.log.info(f"Suscribir mercado {symbols}, de: {self.id_bot}")
+        # necesito un codigo unico para identificar cuando llegue la notificacion de esto
+        status = await self.fix.marketDataRequest(entries=[0, 1], symbols=symbols, subscription=2,
+                                    depth=5, updateType=0, uniqueID=codigo,id_bot=self.id_bot)
+        self.codigoSuscribir = codigo
+        return status
 
     async def suscribir_mercado(self, symbols):  # suscribe a mercado
         status = {"status": False}
         self.log.info(f"Suscribir mercado {symbols}, de: {self.id_bot}")
         # necesito un codigo unico para identificar cuando llegue la notificacion de esto
-        codigo = str(self.cuenta)+"-"+str(self.id_bot) + \
-            "-"+self.randomString(4)
+        codigo = self.randomString(8)
         status = await self.fix.marketDataRequest(entries=[0, 1], symbols=symbols, subscription=1,
                                     depth=5, updateType=0, uniqueID=codigo,id_bot=self.id_bot)
         self.codigoSuscribir = codigo
@@ -814,7 +821,8 @@ class client_request():
                 "clOrdId": clOrdId, 
                 "orderId": orderId, 
                 "id_bot": self.id_bot, 
-                "cuenta": self.cuenta
+                "cuenta": self.cuenta,
+                "active": True
             }, {'$set': {'active': False }})
             return True
         except Exception as e: 

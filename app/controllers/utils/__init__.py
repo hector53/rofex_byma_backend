@@ -52,7 +52,11 @@ class UtilsController:
             log.info(f"error: {str(e)}")
         return response
 
-    def iniciar_bot_ci_48(id_fix, id_bot, cuenta, symbols, opciones, soloEscucharMercado):
+    async def iniciar_bot_ci_48(botM: botManager, id_fix, id_bot, cuenta, symbols, opciones, soloEscucharMercado, fix):
+        from app.clases.botManager.bots.bot_ci_48 import botCi48
+        # en este punto sabemos que la sesion fix esta iniciada y todo bien
+        # ahora tenemos que entrar al bot manager y iniciar este bot como tarea
+
         log.info(
             f"id_fix : {id_fix}, id_bot: {id_bot}, symbols: {symbols}, opciones: {opciones}")
         log.info(
@@ -60,31 +64,29 @@ class UtilsController:
         log.info(f"symbols: {symbols[0]}, {symbols[1]}")
         response = {"status": False}
         try:
-            sesionesFix[id_fix].application.triangulos[cuenta] = {
-                id_bot: botCi48(symbols[0], symbols[1], float(opciones["minRate"]), float(
-                    opciones["maxRate"]), sesionesFix[id_fix].application, id_bot, cuenta)
-            }
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["sizeMax"] = int(
+            bot_bb = botCi48(symbols[0], symbols[1], float(opciones["minRate"]), float(
+                opciones["maxRate"]), fix.application, id_bot, cuenta, mongo)
+            bot_bb.botData["sizeMax"] = int(opciones["sizeMax"])
+            bot_bb.botData["soloEscucharMercado"] = soloEscucharMercado
+            bot_bb.botData["ruedaA"]["sizeDisponible"] = int(
                 opciones["sizeMax"])
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["soloEscucharMercado"] = soloEscucharMercado
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["ruedaA"]["sizeDisponible"] = int(
+            bot_bb.botData["ruedaB"]["sizeDisponible"] = int(
                 opciones["sizeMax"])
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["ruedaB"]["sizeDisponible"] = int(
-                opciones["sizeMax"])
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].daemon = True
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].start()
-            time.sleep(4)
-            response = UtilsController.esperar_bot_iniciado(
-                id_fix, id_bot, cuenta)
-
-            if response["status"] == True:
-                log.info("el bot ha sido iniciado")
-                # actualizar el status del bot
-                status = 1
-                if soloEscucharMercado == True:
-                    status = 2
-                DbUtils.update_bot_ejecutandose(id_bot, status)
-                response = {"status": True, "statusBot": status}
+            # agregar con el bot manager
+            log.info(f"botM: {botM}")
+            log.info(f"voy a iniciar la tarea en el botManager")
+            taskBotManager = await botM.add_task(bot_bb)
+            # response = UtilsController.esperar_bot_iniciado(id_fix, id_bot, cuenta)
+            # await asyncio.sleep(4)
+         #   if response["status"]==True:
+            await asyncio.sleep(4)
+            log.info("el bot ha sido iniciado")
+            # actualizar el status del bot
+            status = 1
+            if soloEscucharMercado == True:
+                status = 2
+            await DbUtils.update_bot_ejecutandose(id_bot, status)
+            response = {"status": True, "statusBot": status}
 
         except Exception as e:
             response = {"status": False, "error": str(e)}
@@ -198,43 +200,48 @@ class UtilsController:
             log.info(f"si existe a session: {id_fix}")
             try:
                 
-         
-                log.info(f"borrar ordenes del bot")
-                log.info(f"si existe a bot: {id_bot}")
-                # buscar en db las ordenes de este bot y cancelarlas
-                log.info("pausar y detener cola del bot")
-                await getFixTask.botManager.main_tasks[id_bot].pause()
-                await getFixTask.botManager.main_tasks[id_bot].detenerBot() 
-                ordenes = mongo.db.ordenes.find({"active": True, "id_bot": id_bot, "cuenta": cuenta}, {"_id": 0})
+                if id_bot in getFixTask.botManager.main_tasks:
+                    log.info(f"borrar ordenes del bot")
+                    log.info(f"si existe a bot: {id_bot}")
+                    # buscar en db las ordenes de este bot y cancelarlas
+                    log.info("pausar y detener cola del bot")
+                    await getFixTask.botManager.main_tasks[id_bot].pause()
+                    await getFixTask.botManager.main_tasks[id_bot].detenerBot() 
+                    ordenes = mongo.db.ordenes.find({"active": True, "id_bot": id_bot, "cuenta": cuenta}, {"_id": 0})
 
-                if ordenes:
-                    ordenesBorrar = list(ordenes)
-                    log.info(f"ordenes: {ordenesBorrar}")
-                    log.info(f"hay {len(ordenesBorrar)} ordenes")
-                    contadorOrdenesCanceladas = 0
+                    if ordenes:
+                        ordenesBorrar = list(ordenes)
+                        log.info(f"ordenes: {ordenesBorrar}")
+                        log.info(f"hay {len(ordenesBorrar)} ordenes")
+                        contadorOrdenesCanceladas = 0
 
-                    for x in ordenesBorrar:
-                        log.info(f"borrar orden: {x}")
-                        result = await UtilsController.cancelar_orden_async(
-                            id_fix, id_bot, x["orderId"], x["clOrdId"], x["side"], x["leavesQty"], x["symbol"], cuenta)
-                        if result["llegoRespuesta"] == True:
-                            contadorOrdenesCanceladas += 1
-                    log.info(
-                        f"se cancelaron: {contadorOrdenesCanceladas} ordenes")
-                    
-                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
-                codigoSuscribir = getFixTask.botManager.main_tasks[id_bot].clientR.codigoSuscribir
-                log.info(f"borrar suscripcion : {getFixTask.application.suscripcionId[codigoSuscribir]} ")
-                del getFixTask.application.suscripcionId[codigoSuscribir]
-                await getFixTask.botManager.stop_task_by_id(id_bot)
-                log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
+                        for x in ordenesBorrar:
+                            log.info(f"borrar orden: {x}")
+                            result = await UtilsController.cancelar_orden_async(
+                                id_fix, id_bot, x["orderId"], x["clOrdId"], x["side"], x["leavesQty"], x["symbol"], cuenta)
+                            if result["llegoRespuesta"] == True:
+                                contadorOrdenesCanceladas += 1
+                        log.info(
+                            f"se cancelaron: {contadorOrdenesCanceladas} ordenes")
+                        
+                    log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
+                    codigoSuscribir = getFixTask.botManager.main_tasks[id_bot].clientR.codigoSuscribir
+                    log.info(f"codigo suscribir del bot q voy a detener: {codigoSuscribir}")
+                    if codigoSuscribir in fixM.main_tasks[id_fix].application.suscripcionId:
+                        log.info(f"borrar suscripcion : {fixM.main_tasks[id_fix].application.suscripcionId} ")
+                        del fixM.main_tasks[id_fix].application.suscripcionId[codigoSuscribir]
+                    log.info(f"suscripcion borrada : {fixM.main_tasks[id_fix].application.suscripcionId} ")
+                    #ahora quitar suscripcion via fix 
+                    symbolsBot = getFixTask.botManager.main_tasks[id_bot].botData["symbols2"]
+                    respSusOff = await getFixTask.botManager.main_tasks[id_bot].clientR.suscribir_mercado_off(symbolsBot,codigoSuscribir)
+                    await getFixTask.botManager.stop_task_by_id(id_bot)
+                    log.info(f"botManager Yasks: {getFixTask.botManager.tasks}")
                 await DbUtils.update_status_bot_ejecuntadose(id_bot, 0)
                 log.info(f"fixM: {fixM}")
-
                 response = {"status": True}
             except Exception as e:
                 log.info(
-                    f"no existe el bot en: {sesionesFix[id_fix].application.triangulos}")
+                    f"error en: {e}")
                 response = {"status": False}
         else:
             log.info(f"no existe la session en: {sesionesFix}")
@@ -262,22 +269,26 @@ class UtilsController:
             log.error(f"error: {str(e)}")
         return response
 
-    def editar_bot_ci_48(id_bot, fix, opciones):
+    async def editar_bot_ci_48(id_bot, fix, opciones):
+        from app import fixM
         response = {"status": False}
         id_fix = fix["user"]
         cuenta = fix["account"]
         try:
-            if id_fix in sesionesFix and id_bot in sesionesFix[id_fix].application.triangulos[cuenta]:
-                sesionesFix[id_fix].application.triangulos[cuenta][id_bot].minimum_arbitrage_rate = float(
+            if id_fix in fixM.main_tasks and id_bot in fixM.main_tasks[id_fix].botManager.main_tasks:
+                fixM.main_tasks[id_fix].botManager.main_tasks[id_bot].minimum_arbitrage_rate = float(
                     opciones["minRate"])
-                sesionesFix[id_fix].application.triangulos[cuenta][id_bot].maximum_arbitrage_rate = float(
+                fixM.main_tasks[id_fix].botManager.main_tasks[id_bot].maximum_arbitrage_rate = float(
                     opciones["maxRate"])
-                sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["editandoBot"] = True
-                time.sleep(1)
+                fixM.main_tasks[id_fix].botManager.main_tasks[id_bot].botData["type_side"] = int(
+                    opciones["type_side"])
+                task = {"type":0}
+                await fixM.main_tasks[id_fix].botManager.main_tasks[id_bot].add_task(task)
             # ahora guardar los datos en db
             result = mongo.db.bots_ejecutandose.update_one(
                 {'_id': ObjectId(id_bot)}, {'$set': {'opciones': opciones}})
             response = {"status": True}
+            
         except Exception as e:
             response = {"status": False, "error": str(e)}
             log.error(f"error: {str(e)}")
