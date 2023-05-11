@@ -281,19 +281,28 @@ class botBB(taskSeqManager):
                 f"error en el ciclo run_forever del botBB con id: {self.id} , {e}")
         finally:
             self.log.info(
-                f"saliendo del ciclo run forever del botBB con id: {self.id}")
+                f"saliendo del ciclo run foreverBB del botBB con id: {self.id}")
 
     async def run_forever(self):
         try:
             if await self.tareas_de_inicio() == False:
                 return
+            self.log.info(f"iniciando ciclo de tareas con el bot: {self.id}")
             while not self.stop.is_set():
                 #   self.log.info("estoy en el ciclo inifito del bot")
                 if self.paused.is_set():
+                    self.log.info(f"el bot no esta en pause")
                     if not self.empty():
+                        self.log.info(f"el bot tiene tareas")
                         task = await self.get()
-                        await self.execute_task(task)
+                        self.log.info(f" se va ejecutar esta tarea: {task}")
                         self.task_done()
+                        await self.execute_task(task)
+                        self.log.info(f"se completo la tarea: {task}")
+                    else:
+                        self.log.info(f"el bot no tiene tareas")
+                else:
+                    self.log.info(f"el bot esta en pause")
                 await asyncio.sleep(0.1)
             #    self.log.info(f"sin task en la cola del bot: {self.id}")
         except Exception as e:
@@ -336,7 +345,6 @@ class botBB(taskSeqManager):
             self.log.info(f"aqui si verificamos puntas")
             await self.verificar_puntas()
 
-        await asyncio.sleep(1)
 
     async def detenerBot(self):
         await self.stopCola()
@@ -786,7 +794,7 @@ class botBB(taskSeqManager):
                         if not self.paused.is_set():
                             self.log.warning(f"paused esta activo")
                             return
-                        cancelarHaberla = await self.clientR.cancelar_orden_haberla(self.botData["byma48h"], sideText)
+                        cancelarHaberla = await self.clientR.cancelar_orden_haberla(self.botData["byma48h"], sideOrder)
                         self.log.info(f"cancelarHaberla: {cancelarHaberla}")
 
             else:

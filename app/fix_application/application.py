@@ -2272,7 +2272,7 @@ class Application(fix.Application):
                    'orderId': orderId,
                    'ordType': orderType
                    }
-        self.clOrdIdEsperar[clOrdId] = {"clOrdId": clOrdId, "type": 1, "details": details, "llegoRespuesta": False}
+        self.clOrdIdEsperar[clOrdId] = {"clOrdId": clOrdId, "type": 1, "details": details, "llegoRespuesta": False, "lastQty": 0}
      
         # ---- Header
 

@@ -197,6 +197,7 @@ class MainTask():
         aqui agregamos tarea a la cola del bot para verificar puntas, pero primero actualizamos tickers en el bot """)
         #task = {"type": 0, "symbolTicker": symbolTicker, "marketData": data["marketData"], 
                     #   "id_bot": self.suscripcionId[MDReqID]["id_bot"] }
+        self.log.info(f"bot data: {self.botManager.main_tasks[id_bot].botData}")
         self.log.info(f"self.botManager.tasks: {self.botManager.tasks}")
         self.log.info(f"self.botManager.main_tasks: {self.botManager.main_tasks}")            
         symbolTicker = task["symbolTicker"]
@@ -209,6 +210,8 @@ class MainTask():
             if self.botManager.main_tasks[id_bot].botData["botIniciado"]==True and self.botManager.main_tasks[id_bot].botData["soloEscucharMercado"]==False:
                 await self.botManager.main_tasks[id_bot].add_task(task)
             self.log.info(f"listo tarea agregada al bot")
+            self.log.info(f"self.botManager.tasks: {self.botManager.tasks}")
+            self.log.info(f"self.botManager.main_tasks: {self.botManager.main_tasks}") 
         else:
             self.log.error("el bot no esta en el botManager quizas ya se detuvo")
        # await asyncio.sleep(0.1)
