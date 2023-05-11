@@ -4,7 +4,8 @@ import time
 import asyncio
 from app.fix_application.application import Application
 import logging
-class taskSeqManager(asyncio.Queue):
+from app.clases.class_cola import Cola
+class taskSeqManager(Cola):
     def __init__(self):
         super().__init__()
         self.paused = asyncio.Event()
@@ -16,7 +17,7 @@ class taskSeqManager(asyncio.Queue):
 
     async def add_task(self, task):
         self.log2.info(f"agregando task: {task}")
-        await self.put(task)
+        await self.agregar_tarea(task)
 
     async def stopCola(self):
         self.stop.set()

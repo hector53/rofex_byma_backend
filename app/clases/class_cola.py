@@ -2,7 +2,7 @@ class Cola:
     def __init__(self):
         self.tareas = []
     
-    def agregar_tarea(self, tarea):
+    async def agregar_tarea(self, tarea):
         self.tareas.append(tarea)
     
     async def obtener_tarea(self):

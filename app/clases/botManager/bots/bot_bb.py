@@ -292,11 +292,11 @@ class botBB(taskSeqManager):
                 #   self.log.info("estoy en el ciclo inifito del bot")
                 if self.paused.is_set():
                     self.log.info(f"el bot no esta en pause")
-                    if not self.empty():
+                    task = await self.obtener_tarea()
+                    if task is not None:
                         self.log.info(f"el bot tiene tareas")
-                        task = await self.get()
                         self.log.info(f" se va ejecutar esta tarea: {task}")
-                        self.task_done()
+                        self.marcar_completada(task)
                         await self.execute_task(task)
                         self.log.info(f"se completo la tarea: {task}")
                     else:
