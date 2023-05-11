@@ -734,7 +734,7 @@ class botBB(taskSeqManager):
                 verificarOperar = await self.clientR.verificar_ordenes_futuro(self.botData["byma48h"], sideBook, self._tickers[self.botData["byma48h"]][sideBook])
                 # verifico ci por la formula que calcula el limit de ci
                 verificarCI = await self.clientR.verificar_ordenes_futuro(self.botData["bymaCI"], sideBookCI, self._tickers[self.botData["bymaCI"]][sideBookCI])
-                if verificarOperar["puedoOperar"] == True and verificarCI["puedoOperar"] == True:
+                if verificarOperar["puedoOperar"] == True:
                     self.log.info(f"puedo crear orden en CI: {sideBook}")
                     # indice del book q puedo tomar sus valores
                     indice = verificarOperar["indiceBookUsar"]
