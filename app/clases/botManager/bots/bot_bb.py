@@ -561,6 +561,7 @@ class botBB(taskSeqManager):
                             modificarOrden = await self.clientR.modificar_orden(orden['orderId'], orden['clOrdId'], sideOrder, 2, self.botData["byma48h"],
                                                                                 volume_limit_CI, limit_price_CI)  # modifico la orden
                         else:
+                            volume_limit_CI = orden['orderQty']
                             modificarOrden = await self.clientR.modificar_orden_size(orden['orderId'], orden['clOrdId'], sideOrder, 2, self.botData["byma48h"],
                                                                                      volume_limit_CI, limit_price_CI)  # modifico la orden
                         self.log.info(f"orden modificada {modificarOrden}")
@@ -780,6 +781,7 @@ class botBB(taskSeqManager):
                             modificarOrden = await self.clientR.modificar_orden(orden['orderId'], orden['clOrdId'], sideOrder, 2, self.botData["bymaCI"],
                                                                                 volume_limit_CI, limit_price_CI)  # modifico la orden
                         else:
+                            volume_limit_CI = orden['orderQty']
                             modificarOrden = await self.clientR.modificar_orden_size(orden['orderId'], orden['clOrdId'], sideOrder, 2, self.botData["bymaCI"],
                                                                                      volume_limit_CI, limit_price_CI)  # modifico la orden
                         self.log.info(f"orden modificada {modificarOrden}")
