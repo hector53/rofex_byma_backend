@@ -373,13 +373,15 @@ class UtilsController:
         return response
 
     def guardar_security_in_fix(data, id_fix):
+        from app import fixM
         for x in data:
-            sesionesFix[id_fix].application.securitysList[x["symbol"]] = x
+            fixM.main_tasks[id_fix].application.securitysList[x["symbol"]] = x
         return True
 
     def fetch_securitys_data(id_fix):
+        from app import fixM
         log.info("fetch_securitys_data")
-        lista = sesionesFix[id_fix].application.securitysList
+        lista = fixM.main_tasks[id_fix].application.securitysList
         arraySecuritys = []
         for x in lista:
             arraySecuritys.append(lista[x])

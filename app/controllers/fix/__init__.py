@@ -218,11 +218,12 @@ class FixController:
             return {"status": False}
     
     def get_securitys():
+        from app import fixM
         req_obj = request.get_json()
         print(req_obj)
         inicio = time.time()
         id_fix = req_obj['id_fix']
-        if id_fix in sesionesFix:
+        if id_fix in fixM.main_tasks:
             #ahora necesito saber el tipo de cuenta si es demo o no 
             cuentaFix = mongo.db.cuentas_fix.find_one({"user": id_fix }, {"_id": 0})
             account_type = "demo"
@@ -234,12 +235,12 @@ class FixController:
                 UtilsController.guardar_security_in_fix(securitys["data"], id_fix)
                 response = {"securitys": str(securitys["data"]).replace("'", '"'), "date": str(datetime.now()), "status": True}
                 return jsonify(response)
-            sesionesFix[id_fix].application.securityListRequest(symbol="")
+            fixM.main_tasks[id_fix].application.securityListRequest(symbol="")
             response = {"status": True}
             while True: 
                 time.sleep(0.1)
             #   log.info(f"esperando seguridad {sesionesFix[id_fix].application.securitySegments}")
-                if "DDA" in sesionesFix[id_fix].application.securitySegments and "DDF" in sesionesFix[id_fix].application.securitySegments and "MERV" in sesionesFix[id_fix].application.securitySegments and "DUAL" in sesionesFix[id_fix].application.securitySegments:
+                if "DDA" in fixM.main_tasks[id_fix].application.securitySegments and "DDF" in fixM.main_tasks[id_fix].application.securitySegments and "MERV" in fixM.main_tasks[id_fix].application.securitySegments and "DUAL" in fixM.main_tasks[id_fix].application.securitySegments:
                     break
             time.sleep(1)
             securitys_data = UtilsController.fetch_securitys_data(id_fix)
