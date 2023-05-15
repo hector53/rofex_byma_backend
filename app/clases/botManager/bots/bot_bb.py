@@ -85,11 +85,11 @@ class botBB(taskSeqManager):
                                                ]["BI"] = posicion["buySize"]
                     self.botData["posiciones"][self.botData["bymaCI"]
                                                ]["OF"] = posicion["sellSize"]
-                    if posicion["tradingSymbol"] == self.botData["byma48h"]:
-                        self.botData["posiciones"][self.botData["byma48h"]
-                                                   ]["BI"] = posicion["buySize"]
-                        self.botData["posiciones"][self.botData["byma48h"]
-                                                   ]["OF"] = posicion["sellSize"]
+                if posicion["tradingSymbol"] == self.botData["byma48h"]:
+                    self.botData["posiciones"][self.botData["byma48h"]
+                                                ]["BI"] = posicion["buySize"]
+                    self.botData["posiciones"][self.botData["byma48h"]
+                                                ]["OF"] = posicion["sellSize"]
         except Exception as e:
             self.log.error(f"error guardando posiciones: {e}")
 
@@ -344,7 +344,6 @@ class botBB(taskSeqManager):
         if task["type"] == 0:
             self.log.info(f"aqui si verificamos puntas")
             await self.verificar_puntas()
-
 
     async def detenerBot(self):
         await self.stopCola()

@@ -23,7 +23,7 @@ class BotsController:
             log.error(f"error en show_all: {e}")
         return jsonify(bots)
     
-    async def start_bot_new(): 
+    async def   start_bot_new(): 
         from app import fixM
         req_obj = request.get_json()
       #  print("startBot",req_obj)
@@ -51,8 +51,8 @@ class BotsController:
                     response = UtilsController.iniciar_bot_triangulo(id_fix, id_bot_ejecutando, cuenta, symbols, opciones, soloEscucharMercado)
                 if type_bot == 1:#CI-48
                     response = await UtilsController.iniciar_bot_ci_48(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
-                if type_bot == 2:#CI-48
-                    response = UtilsController.iniciar_bot_ci_ci(id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado)
+                if type_bot == 2:#CI-CI
+                    response = await UtilsController.iniciar_bot_ci_ci(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
                 if type_bot == 3:#CI-48-BB
                     response = await UtilsController.iniciar_bot_ci_48_bb(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
             else:
@@ -233,7 +233,6 @@ class BotsController:
                     ruedaA = fixM.main_tasks[fix["user"]].botManager.main_tasks[botE_id].botData["ruedaA"]
                     ruedaB = fixM.main_tasks[fix["user"]].botManager.main_tasks[botE_id].botData["ruedaB"]
                     if botE["type_bot"]==3: 
-                        
                         botE["dataBB"] = DbUtils.get_data_bb_intradia_hoy(botE_id)
                     botE["limitsPuntas"] = fixM.main_tasks[fix["user"]].botManager.main_tasks[botE_id].botData["limitsBB"]
                     botE["ordenesToda"] = list(ordenesToda)
@@ -247,14 +246,16 @@ class BotsController:
             log.error(f"error en get botchar: {e}")
             abort(make_response(jsonify(message=f"botE error {e}"), 401))
     
-    def deleteBot():
-        req_obj = request.get_json()
+    def deleteBot(id):
         try:
-            print("delete bots",req_obj)
-            count = mongo.db.bots_ejecutandose.count_documents({"id_bot": req_obj["id"], "status": {"$gt": 0}})
+            print("delete bots",id)
+            count = mongo.db.bots_ejecutandose.count_documents({"id_bot": id, "status": {"$gt": 0}})
             if count > 0:
                 abort(make_response(jsonify(message="este bot esta siendo ejecutado actualmente, borrarlo seria una catastrofe jajaja"), 401))
-            result = mongo.db.bots.delete_one({'_id': ObjectId(req_obj["id"])})
+            delete = mongo.db.bots_ejecutandose.delete_many({
+                "id_bot": id
+            })
+            result = mongo.db.bots.delete_one({'_id': ObjectId(id)})
             return {"status": True}
         except Exception as e: 
             return {"status": False}

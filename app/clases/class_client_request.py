@@ -458,6 +458,27 @@ class client_request():
         except Exception as e:
             self.log.error(f"error en factor: {e}")
         return factor
+    
+    async def getMinMax(self, symbol):
+        self.log.info(f"entrando a getMinMax")
+        try:
+            self.log.info("get min increment")
+            query = {"data.symbol": symbol,   "account_type": "demo"}
+            unwind = {"$unwind": "$data"}
+            match = {"$match": query}
+            proyeccion = {"$replaceRoot": {"newRoot": "$data"}}
+            resultados = self.mongo.db.securitys.aggregate(
+                [unwind, match, proyeccion])
+            symbolResult = list(resultados)
+            obj = {"lowLimitPrice": 0, "highLimitPrice":0}
+            if len(symbolResult) > 0:
+                obj["lowLimitPrice"] = symbolResult[0]["lowLimitPrice"]
+                obj["highLimitPrice"] = symbolResult[0]["highLimitPrice"]
+            self.log.info(f"getMinMax: {obj}")
+            return obj
+        except Exception as e:
+            self.log.error(f"error en obj: {e}")
+
 
     async def get_min_increment(self, symbol, min_increment=0.50):
         try:

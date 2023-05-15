@@ -8,8 +8,7 @@ from threading import Thread
 import datetime
 import statistics
 
-
-class botCiCiP(taskSeqManager):
+class botCiCi(taskSeqManager):
     def __init__(self, bymaCI, byma48h, minimum_arbitrage_rate, maximum_arbitrage_rate, f, id_bot, cuenta, mongo):
         super().__init__()
         self.minimum_arbitrage_rate = float(minimum_arbitrage_rate)
@@ -56,6 +55,8 @@ class botCiCiP(taskSeqManager):
             "type_side": 0,
             "sizeMax": 1,
             "soloEscucharMercado": False,
+            "conBB": False,
+            "porcentual": False,
             "ruedasCompletadas": 0,
             "ruedaA": {
                 "ordenes": [],
@@ -78,18 +79,18 @@ class botCiCiP(taskSeqManager):
     async def guardar_posiciones(self):
         try:
             posiciones = await self.clientR.get_posiciones(self.botData["cuenta"])
-            self.log.info("voy a guardar posiciones")
+            self.log.info(f"voy a guardar posiciones: {posiciones}")
             for posicion in posiciones:
                 if posicion["tradingSymbol"] == self.botData["bymaCI"]:
                     self.botData["posiciones"][self.botData["bymaCI"]
                                                ]["BI"] = posicion["buySize"]
                     self.botData["posiciones"][self.botData["bymaCI"]
                                                ]["OF"] = posicion["sellSize"]
-                    if posicion["tradingSymbol"] == self.botData["byma48h"]:
-                        self.botData["posiciones"][self.botData["byma48h"]
-                                                   ]["BI"] = posicion["buySize"]
-                        self.botData["posiciones"][self.botData["byma48h"]
-                                                   ]["OF"] = posicion["sellSize"]
+                if posicion["tradingSymbol"] == self.botData["byma48h"]:
+                    self.botData["posiciones"][self.botData["byma48h"]
+                                                ]["BI"] = posicion["buySize"]
+                    self.botData["posiciones"][self.botData["byma48h"]
+                                                ]["OF"] = posicion["sellSize"]
         except Exception as e:
             self.log.error(f"error guardando posiciones: {e}")
 
@@ -193,21 +194,17 @@ class botCiCiP(taskSeqManager):
             self.log.info(f"latest_asset_price_48h: {latest_asset_price_48h}")
             self.log.info(f"latest_asset_price_ci: {latest_asset_price_ci}")
             # limit BID CI: Escuchas BID 48h y ASK CI para el calculo
-            latest_limit_asset_price_CI_BID = price_48_bi - \
-                (upper * (dias_restantes + 0) / 365) * price_ci_of
+            latest_limit_asset_price_CI_BID = price_48_bi + upper
             # limit ASK CI: Escuchas ASK 48h y BID CI para el calculo
-            latest_limit_asset_price_CI_ASK = price_48_of - \
-                (lower * (dias_restantes + 0) / 365) * price_ci_bi
+            latest_limit_asset_price_CI_ASK = price_48_of - lower
             self.log.info(
                 f"New limit CI: BID estrategia: {latest_limit_asset_price_CI_BID}")
             self.log.info(
                 f"New limit CI: ASK estrategia: {latest_limit_asset_price_CI_ASK}")
             # limit BID 48h: Escuchas BID CI y ASK 48h para el calculo. Aca no te pide 48h igualmente.
-            latest_limit_asset_price_48h_BID = price_ci_bi + \
-                (lower * (dias_restantes + 0) * price_ci_bi / 365)
+            latest_limit_asset_price_48h_BID = price_ci_bi - lower
             # limit ASK 48h: Escuchas ASK CI y BID 48h para el calculo. Aca no te pide 48h igualmente.
-            latest_limit_asset_price_48h_ASK = price_ci_of + \
-                (upper * (dias_restantes + 0) * price_ci_of / 365)
+            latest_limit_asset_price_48h_ASK = price_ci_of + upper
             self.log.info(
                 f"New limit 48: BID estrategia: {latest_limit_asset_price_48h_BID}")
             self.log.info(
@@ -300,6 +297,10 @@ class botCiCiP(taskSeqManager):
         try:
             self.threadCola = Thread(target=self.startCola)
             self.threadCola.start()
+            if self.botData["conBB"]==True:
+                self.threadBB = Thread(target=self.startLoopBB)
+                self.threadBB.start()
+
         finally:
             self.log.info(
                 "saliendo de la tarea iniciada en el botmanager pero queda la thread")
@@ -311,6 +312,22 @@ class botCiCiP(taskSeqManager):
         # ejecuto la funcion q quiero
         loop.run_until_complete(self.run_forever_bb())
         loop.close()
+
+    async def run_forever_bb(self):
+        try:
+            while not self.stop.is_set():
+                self.log.info("estoy en el ciclo inifito del bot BB")
+         #       await self.pausedBB.wait()
+                if self.paused.is_set():
+                    await self.operar_con_bb()
+                await asyncio.sleep(10)
+            #    self.log.info(f"sin task en la cola del bot: {self.id}")
+        except Exception as e:
+            self.log.error(
+                f"error en el ciclo run_forever del botBB con id: {self.id} , {e}")
+        finally:
+            self.log.info(
+                f"saliendo del ciclo run foreverBB del botBB con id: {self.id}")
 
     def startCola(self):
         # creo un nuevo evento para asyncio y asi ejecutar todo de aqui en adelante con async await
@@ -339,27 +356,36 @@ class botCiCiP(taskSeqManager):
         try:
             limit_asset_price_CI = 0
             annualized_arbitrage_rate = self.minimum_arbitrage_rate
+            
             volume = self.get_volume(size_48h)
             self.log.info(f"volume: {volume}")
             if sideBook == "BI":
                 self.log.info(f"sideBook BI")
                 annualized_arbitrage_rate = self.maximum_arbitrage_rate
+                if self.botData["conBB"]==True and self.upperBB!=None:
+                    annualized_arbitrage_rate = self.upperBB
                 if volume > self.botData["ruedaA"]["sizeDisponible"]:
                     self.log.info(
                         f"volume>self.botData['ruedaA']['sizeDisponible']")
                     self.log.info(
                         f"sizeDisponible ruedaA: {self.botData['ruedaA']['sizeDisponible']}")
                     volume = self.botData["ruedaA"]["sizeDisponible"]
-                limit_asset_price_CI = asset_price_48h * (annualized_arbitrage_rate+1)
+                limit_asset_price_CI = asset_price_48h + annualized_arbitrage_rate
+                if self.botData["porcentual"]==True:
+                    limit_asset_price_CI = asset_price_48h * (annualized_arbitrage_rate+1)
             else:
                 self.log.info(f"sideBook OF")
+                if self.botData["conBB"]==True and self.lowerBB!=None:
+                    annualized_arbitrage_rate = self.lowerBB
                 if volume > self.botData["ruedaB"]["sizeDisponible"]:
                     self.log.info(
                         f"volume>self.botData['ruedaB']['sizeDisponible']")
                     self.log.info(
                         f"sizeDisponible ruedaB: {self.botData['ruedaB']['sizeDisponible']}")
                     volume = self.botData["ruedaB"]["sizeDisponible"]
-                limit_asset_price_CI = asset_price_48h / (annualized_arbitrage_rate+1)
+                limit_asset_price_CI = asset_price_48h - annualized_arbitrage_rate
+                if self.botData["porcentual"]==True:
+                    limit_asset_price_CI = asset_price_48h / (annualized_arbitrage_rate+1)
 
             self.log.info(f"limit_asset_price_CI: {limit_asset_price_CI}")
             self.update_limits("CI", limit_asset_price_CI, sideBook)
@@ -379,22 +405,30 @@ class botCiCiP(taskSeqManager):
             if sideBook == "OF":
                 self.log.info(f"sideBook OF")
                 annualized_arbitrage_rate = self.maximum_arbitrage_rate
+                if self.botData["conBB"]==True and self.upperBB!=None:
+                    annualized_arbitrage_rate = self.upperBB
                 if volume > self.botData["ruedaA"]["sizeDisponible"]:
                     self.log.info(
                         f"volume>self.botData['ruedaA']['sizeDisponible']")
                     self.log.info(
                         f"sizeDisponible ruedaA: {self.botData['ruedaA']['sizeDisponible']}")
                     volume = self.botData["ruedaA"]["sizeDisponible"]
-                limit_asset_price_48h = asset_price_CI / (annualized_arbitrage_rate+1)
+                limit_asset_price_48h = asset_price_CI + annualized_arbitrage_rate
+                if self.botData["porcentual"]==True:
+                    limit_asset_price_48h = asset_price_CI / (annualized_arbitrage_rate+1)
             else:
                 self.log.info(f"sideBook BI")
+                if self.botData["conBB"]==True and self.lowerBB!=None:
+                    annualized_arbitrage_rate = self.lowerBB
                 if volume > self.botData["ruedaB"]["sizeDisponible"]:
                     self.log.info(
                         f"volume>self.botData['ruedaB']['sizeDisponible']")
                     self.log.info(
                         f"sizeDisponible ruedaB: {self.botData['ruedaB']['sizeDisponible']}")
                     volume = self.botData["ruedaB"]["sizeDisponible"]
-                limit_asset_price_48h = asset_price_CI * (annualized_arbitrage_rate+1)
+                limit_asset_price_48h = asset_price_CI - annualized_arbitrage_rate
+                if self.botData["porcentual"]==True:
+                    limit_asset_price_48h = asset_price_CI * (annualized_arbitrage_rate+1)
            
             self.update_limits("48", limit_asset_price_48h, sideBook)
 
@@ -810,22 +844,21 @@ class botCiCiP(taskSeqManager):
                         return
                     # await self.clientR.esperar_orden_operada()
                     # ahora aqui debo validar q el size q tengo en las posiciones sea mayor o igual al q voy a realizar
-                    if sideBook == "OF":
-                        if posicionBymaCI <= volume_limit_CI:
+                    if sideBook=="BI":
+                        if posicion48h<volume_limit_CI and posicion48h>0:
+                            volume_limit_CI = posicion48h
+                            self.log.info("no tengo suficiente size en ci2h pero tengo algo entonces modifico el size")
                             self.log.info(
-                                "no hago nada xq no tengo suficiente size en las posiciones")
-
-                            return  # no hago nada xq no tengo suficiente size en las posiciones
-                    if sideBook == "BI":
-                        self.log.info(
                             "aqui voy a verificar el saldo disponible en pesos  ")
-                        disponible = await self.clientR.get_saldo_disponible(self.botData["bymaCI"])
-                        if disponible < (limit_price_CI*volume_limit_CI) * self.botData["factor"]:
-                            self.log.info(
-                                f"no hay saldo disponible para operar ")
-                            return
-                    if self.botData["soloEscucharMercado"] == True:
-                        return
+                            disponible = await self.clientR.get_saldo_disponible(self.botData["bymaCI"])
+                            if disponible < (limit_price_CI*volume_limit_CI) * self.botData["factor"]:
+                                self.log.info(
+                                    f"no hay saldo disponible para operar ")
+                                return
+                    else:
+                        if posicionBymaCI<volume_limit_CI and posicionBymaCI>0:
+                            volume_limit_CI = posicionBymaCI
+                            self.log.info("no tengo suficiente size en ci pero tengo algo entonces modifico el size")
                     if not self.paused.is_set():
                         self.log.warning(f"paused esta activo")
                         return

@@ -18,7 +18,7 @@ app.add_url_rule('/api/startBot', view_func=BotsController.start_bot_new, method
 app.add_url_rule('/api/detenerBot', view_func=BotsController.detener_bot, methods=['POST'] )
 app.add_url_rule('/api/add_bot', view_func=BotsController.add_bot, methods=['POST'] )
 app.add_url_rule('/api/editBot', view_func=BotsController.edit_bot, methods=['POST'] )
-app.add_url_rule('/api/deleteBot', view_func=BotsController.deleteBot, methods=['POST'] )
+app.add_url_rule('/api/deleteBot/<string:id>', view_func=BotsController.deleteBot, methods=['DELETE'] )
 app.add_url_rule('/api/bot_data_charts/<string:id>', view_func=BotsController.bot_data_charts, methods=['POST'] )
 
 ####CUENTAS FIX####

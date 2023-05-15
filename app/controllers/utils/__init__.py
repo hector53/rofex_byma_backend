@@ -93,7 +93,11 @@ class UtilsController:
             log.info(f"error: {str(e)}")
         return response
 
-    def iniciar_bot_ci_ci(id_fix, id_bot, cuenta,  symbols, opciones, soloEscucharMercado):
+    async def iniciar_bot_ci_ci(botM: botManager, id_fix, id_bot, cuenta, symbols, opciones, soloEscucharMercado, fix):
+        from app.clases.botManager.bots.bot_ci_ci import botCiCi
+        # en este punto sabemos que la sesion fix esta iniciada y todo bien
+        # ahora tenemos que entrar al bot manager y iniciar este bot como tarea
+
         log.info(
             f"id_fix : {id_fix}, id_bot: {id_bot}, symbols: {symbols}, opciones: {opciones}")
         log.info(
@@ -101,39 +105,38 @@ class UtilsController:
         log.info(f"symbols: {symbols[0]}, {symbols[1]}")
         response = {"status": False}
         try:
-            log.info("entrando a try")
-            sesionesFix[id_fix].application.triangulos[cuenta] = {
-                id_bot: botCiCi(symbols[0], symbols[1], float(opciones["minRate"]), float(
-                    opciones["maxRate"]), sesionesFix[id_fix].application, id_bot, cuenta)
-            }
-            log.info("segunda linea")
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["sizeMax"] = int(
+            bot = botCiCi(symbols[0], symbols[1], float(opciones["minRate"]), float(
+                opciones["maxRate"]), fix.application, id_bot, cuenta, mongo)
+            bot.botData["sizeMax"] = int(opciones["sizeMax"])
+            bot.botData["type_side"] = int(opciones["type_side"])
+            bot.botData["conBB"] = opciones["conBB"]
+            bot.botData["porcentual"] = opciones["porcentual"]
+            bot.botData["soloEscucharMercado"] = soloEscucharMercado
+            bot.botData["ruedaA"]["sizeDisponible"] = int(
                 opciones["sizeMax"])
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["soloEscucharMercado"] = soloEscucharMercado
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["ruedaA"]["sizeDisponible"] = int(
+            bot.botData["ruedaB"]["sizeDisponible"] = int(
                 opciones["sizeMax"])
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].botData["ruedaB"]["sizeDisponible"] = int(
-                opciones["sizeMax"])
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].daemon = True
-            sesionesFix[id_fix].application.triangulos[cuenta][id_bot].start()
-            time.sleep(4)
-            log.info("esperar bot iniciado ")
-            response = UtilsController.esperar_bot_iniciado(
-                id_fix, id_bot, cuenta)
-            if response["status"] == True:
-                log.info("el bot ha sido iniciado")
-                # actualizar el status del bot
-                status = 1
-                if soloEscucharMercado == True:
-                    status = 2
-                DbUtils.update_bot_ejecutandose(id_bot, status)
-                response = {"status": True, "statusBot": status}
+            # agregar con el bot manager
+            log.info(f"botM: {botM}")
+            log.info(f"voy a iniciar la tarea en el botManager")
+            taskBotManager = await botM.add_task(bot)
+            # response = UtilsController.esperar_bot_iniciado(id_fix, id_bot, cuenta)
+            # await asyncio.sleep(4)
+         #   if response["status"]==True:
+            await asyncio.sleep(4)
+            log.info("el bot ha sido iniciado")
+            # actualizar el status del bot
+            status = 1
+            if soloEscucharMercado == True:
+                status = 2
+            await DbUtils.update_bot_ejecutandose(id_bot, status)
+            response = {"status": True, "statusBot": status}
 
         except Exception as e:
             response = {"status": False, "error": str(e)}
             log.info(f"error: {str(e)}")
         return response
-
+    
     def iniciar_bot_triangulo(id_fix, id_bot, cuenta, symbols, opciones, soloEscucharMercado):
         response = {"status": False}
         try:
