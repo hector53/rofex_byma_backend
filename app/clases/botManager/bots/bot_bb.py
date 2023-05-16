@@ -55,6 +55,7 @@ class botBB(taskSeqManager):
             "editandoBot": False,
             "type_side": 0,
             "sizeMax": 1,
+            "market": False,
             "soloEscucharMercado": False,
             "ruedasCompletadas": 0,
             "ruedaA": {

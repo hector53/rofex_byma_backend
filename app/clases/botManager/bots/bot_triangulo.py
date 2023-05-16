@@ -9,11 +9,11 @@ import logging
 from app.clases.class_client_request import client_request
 from app.clases.botManager.taskSeqManager import taskSeqManager
 class botTriangulo(taskSeqManager):
-    def  __init__(self, futuro1, futuro2, pase, f, id_bot, cuenta) -> None:
+    def  __init__(self, futuro1, futuro2, pase, f, id_bot, cuenta, mongo) -> None:
         self.fix = f
         self.name = f"bot_{id_bot}"
         self.id = id_bot
-        self.clientR = client_request(f, id_bot, cuenta)
+        self.clientR = client_request(f, id_bot, cuenta,mongo)
         self.threadCola = None
         self.botData = {
             "id_bot": id_bot,
@@ -38,6 +38,7 @@ class botTriangulo(taskSeqManager):
             "minMax": {},
             "varGan": 0.1,
             "sizeMax": 1,
+            "market": False,
             "detener": False,#la uso para detener el bot
             "editandoBot": False,#la uso para saber si estoy editando el bot
             "botIniciado": None,#la uso para en el dashboard saber q el bot ya inicio correctamente o no
@@ -120,6 +121,7 @@ class botTriangulo(taskSeqManager):
                     return 0
         limitAskFuturo1 = round(limitAskFuturo1,1)
         self.log.info(f"futuro1Ask:{futuro1Ask},limitAskFuturo1:{limitAskFuturo1}")
+        self.update_limits("CI", limitAskFuturo1, "OF")
         return limitAskFuturo1
     
     async def  calcular_limit_futuro1_bid(self, verificarFuturo1):
@@ -183,7 +185,26 @@ class botTriangulo(taskSeqManager):
                     return 0
         self.log.info(f"futuro1Bid:{futuro1Bid},limitBidFuturo1:{limitBidFuturo1}")
         limitBidFuturo1 = round(limitBidFuturo1,1)
+        self.update_limits("CI", limitBidFuturo1, "BI")
         return limitBidFuturo1
+    
+    def update_limits(self, symbol, price, sideBook):
+        self.log.info(f"entrando a updatelimits")
+        try:
+            if symbol == "48":
+                if sideBook == "BI":
+                    self.botData["limitsBB"]["bi_48"] = price
+                else:
+                    self.botData["limitsBB"]["of_48"] = price
+            else:
+                if sideBook == "BI":
+                    self.botData["limitsBB"]["bi_ci"] = price
+                else:
+                    self.botData["limitsBB"]["of_ci"] = price
+        except Exception as e:
+            self.log.error(f"error update limits: {e}")
+
+
     async def  calcular_limit_futuro2_bid(self, verificarFuturo1 ):
         self.log.info("entrando a calcular_limit_futuro2_bid")
         if len(self._tickers[self.botData["futuro1"]]["BI"])<(self.botData["indices_futuros"][self.botData["futuro1"]]["BI"]+1):
@@ -243,6 +264,7 @@ class botTriangulo(taskSeqManager):
                     return 0
         limitBidFuturo2 = round(limitBidFuturo2,1)
         self.log.info(f"futuro2Bid:{futuro2Bid},limitBidFuturo2:{limitBidFuturo2}")
+        self.update_limits("48", limitBidFuturo2, "BI")
         return limitBidFuturo2
 
 
@@ -305,6 +327,7 @@ class botTriangulo(taskSeqManager):
                     return 0
         limitAskFuturo2 = round(limitAskFuturo2,1)
         self.log.info(f"futuro2Ask:{futuro2Ask},limitBidFuturo2:{limitAskFuturo2}")
+        self.update_limits("48", limitAskFuturo2, "OF")
         return limitAskFuturo2
     
 
@@ -738,7 +761,7 @@ class botTriangulo(taskSeqManager):
         await self.verificar_pases()
         self.log.info("fin verificar pases")
 
-    async def guardar_posiciones(self, posiciones):
+    async def guardar_posiciones(self):
         try:
             posiciones = await self.clientR.get_posiciones(self.botData["cuenta"])
             self.log.info("voy a guardar posiciones")
@@ -833,7 +856,7 @@ class botTriangulo(taskSeqManager):
         loop.run_until_complete(self.run_forever())
         loop.close()
             
-    def  run(self):
+    async def run(self):
         try:
             self.threadCola = Thread(target=self.startCola)
             self.threadCola.start()

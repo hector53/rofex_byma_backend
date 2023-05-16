@@ -48,7 +48,7 @@ class BotsController:
                 log.info(f"el bot esta desactivado asi q lo inicio")
                 opciones = getBotEjecutando["opciones"]
                 if type_bot == 0:#triangulo
-                    response = UtilsController.iniciar_bot_triangulo(id_fix, id_bot_ejecutando, cuenta, symbols, opciones, soloEscucharMercado)
+                    response = await UtilsController.iniciar_bot_triangulo(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
                 if type_bot == 1:#CI-48
                     response = await UtilsController.iniciar_bot_ci_48(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
                 if type_bot == 2:#CI-CI
@@ -208,7 +208,32 @@ class BotsController:
                 #aqui si esta activo completamente buscar todos los demas datos 
                 #necesito el tipo de bot para saber q datos traer 
                 if botE["type_bot"]==0: 
-                    print("es triangulo horita nada ")
+                    log.info("es triangulo")
+                    # Obtener la fecha actual
+                    fecha_actual = datetime.today()
+
+                    # Agregar 4 horas a la fecha actual
+                    fecha_actual_mas_4h = fecha_actual + timedelta(hours=4)
+
+                    # Convertir la fecha a un formato legible
+                    fecha_actual_mas_4h_str = fecha_actual_mas_4h.strftime("%Y%m%d")
+
+                    ordenesToda = mongo.db.ordenes.find({
+                        "id_bot": botE_id, 
+                        "cuenta": botE_cuenta, 
+                        "transactTime": {"$regex": f"^{fecha_actual_mas_4h_str}"}
+                    }, {"_id": 0})
+                    
+
+                    arrayBook = fixM.main_tasks[fix["user"]].botManager.main_tasks[botE_id]._tickers
+                    posiciones = fixM.main_tasks[fix["user"]].botManager.main_tasks[botE_id].botData["posiciones"]
+                    posiciones = UtilsController.get_tenencias_bot(posiciones)
+                    botE["limitsPuntas"] = fixM.main_tasks[fix["user"]].botManager.main_tasks[botE_id].botData["limitsBB"]
+                    botE["ordenesToda"] = list(ordenesToda)
+                    botE["arrayBook"] = arrayBook
+                    botE["posiciones"] = posiciones
+                #  log.info(f"esto es lo q voy a retornar botE: {botE}")
+                    return jsonify(botE)
                 elif botE["type_bot"]==1 or botE["type_bot"]==2 or botE["type_bot"]==3: 
                     log.info("es ci/48")
                     # Obtener la fecha actual

@@ -55,6 +55,7 @@ class botCi48(taskSeqManager):
             "editandoBot": False,
             "type_side": 0,
             "sizeMax": 1,
+            "market": False,
             "soloEscucharMercado": False,
             "ruedasCompletadas": 0,
             "ruedaA": {
@@ -369,6 +370,9 @@ class botCi48(taskSeqManager):
                  (dias_restantes + 0) / 365) * market_price_ci
             self.log.info(f"limit_asset_price_CI: {limit_asset_price_CI}")
             self.update_limits("CI", limit_asset_price_CI, sideBook)
+            dataMd = {"type": "bb", "instrumentId": {
+                "symbol": self.botData["bymaCI"]}, "limit_asset_price_CI": limit_asset_price_CI}
+            self.fix.server_md.broadcast(str(dataMd))
             return round(self.redondeo_tick(limit_asset_price_CI, self.botData["minPriceIncrement"]), 2), volume
         except Exception as e:
             self.log.error(f"error calculando limit ci: {e}")
@@ -405,7 +409,9 @@ class botCi48(taskSeqManager):
                 (annualized_arbitrage_rate *
                  (dias_restantes + 0) * asset_price_CI / 365)
             self.update_limits("48", limit_asset_price_48h, sideBook)
-
+            dataMd = {"type": "bb", "instrumentId": {
+                "symbol": self.botData["bymaCI"]}, "limit_asset_price_48h": limit_asset_price_48h}
+            self.fix.server_md.broadcast(str(dataMd))
             return round(self.redondeo_tick(limit_asset_price_48h, self.botData["minPriceIncrement"]), 2), volume
         except Exception as e:
             self.log.error(f"error calculando limit 48: {e}")
@@ -920,6 +926,11 @@ class botCi48(taskSeqManager):
                         self.log.info(
                             f"es filled o colgada ahora si descuento la rueda ")
                         await self.guardar_mitad_rueda(order["data"], order["lastQty"], 1)
+                        #verificar si es colgada 
+                        if order["data"]["ordStatus"]=="NEW":
+                            #es colgada enviar notificacion 
+                            dataMd = {"type": "colgada", "details": order["data"]}
+                            self.fix.server_md.broadcast(str(dataMd))
                 await self.clientR.disable_order_status(orderId, clOrdId)
 
                 await self.clientR.save_order_details(details, activeOrder)
@@ -988,36 +999,43 @@ class botCi48(taskSeqManager):
             f"necesito el side: {sideCheck} para poder hacer el market del otro lado")
         self.log.info(f"id_order: {id_order}")
         self.log.info(f"sideOrder: {sideOrder}")
-        try:
-            verifyF = await self.clientR.verificar_ordenes_futuro(symbolCheck, sideCheck, self._tickers[symbolCheck][sideCheck])
-            if verifyF["puedoOperar"] == True:
-                self.log.info(
-                    "si hay ordenes en el simbolo y en el side que necesito")
-                size = orden["lastQty"]
-                indiceBook = verifyF["indiceBookUsar"]
-                priceOrder = self._tickers[symbolCheck][sideCheck][indiceBook]["price"]
-                self.log.info(f"priceFuturo: {priceOrder}")
-                clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
-            #   self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
-                ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size, priceOrder, 2, clOrdId, 1)
-                self.log.info(f"ordenNew: {ordenNew}")
-                response = ordenNew
 
-            else:
+        try:
+            if self.botData["market"]==True:
                 size = orden["lastQty"]
-                self.log.info(
-                    f"no puedo operar xq no hay ordenes en el simbolo y en el side que necesito")
-                sideForPrice = "BI"
-                if sideCheck == "BI":
-                    sideForPrice = "OF"
-                limit_price, volume_limit = self.calculate_limit_asset_price_48h(
-                    orden["price"], orden["lastQty"], sideForPrice)
-                self.log.info(f"priceFuturo: {limit_price}")
                 clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
-            #  self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
-                ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size, limit_price, 2, clOrdId, 1)
-                self.log.info(f"ordenNew: {ordenNew}")
+                ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size,0, 1, clOrdId, 1)
                 response = ordenNew
+            else:
+                verifyF = await self.clientR.verificar_ordenes_futuro(symbolCheck, sideCheck, self._tickers[symbolCheck][sideCheck])
+                if verifyF["puedoOperar"] == True:
+                    self.log.info(
+                        "si hay ordenes en el simbolo y en el side que necesito")
+                    size = orden["lastQty"]
+                    indiceBook = verifyF["indiceBookUsar"]
+                    priceOrder = self._tickers[symbolCheck][sideCheck][indiceBook]["price"]
+                    self.log.info(f"priceFuturo: {priceOrder}")
+                    clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
+                #   self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
+                    ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size, priceOrder, 2, clOrdId, 1)
+                    self.log.info(f"ordenNew: {ordenNew}")
+                    response = ordenNew
+
+                else:
+                    size = orden["lastQty"]
+                    self.log.info(
+                        f"no puedo operar xq no hay ordenes en el simbolo y en el side que necesito")
+                    sideForPrice = "BI"
+                    if sideCheck == "BI":
+                        sideForPrice = "OF"
+                    limit_price, volume_limit = self.calculate_limit_asset_price_48h(
+                        orden["price"], orden["lastQty"], sideForPrice)
+                    self.log.info(f"priceFuturo: {limit_price}")
+                    clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
+                #  self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
+                    ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size, limit_price, 2, clOrdId, 1)
+                    self.log.info(f"ordenNew: {ordenNew}")
+                    response = ordenNew
         except Exception as e:
             self.log.error(f"error operando orden contraria: {e}")
         return response

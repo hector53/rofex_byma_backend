@@ -54,6 +54,7 @@ class botCiCi(taskSeqManager):
             "editandoBot": False,
             "type_side": 0,
             "sizeMax": 1,
+            "market": False,
             "soloEscucharMercado": False,
             "conBB": False,
             "porcentual": False,

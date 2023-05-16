@@ -2058,7 +2058,7 @@ class Application(fix.Application):
         return response
 
 
-    async def newOrderSingle(self, clOrdId, symbol, side, quantity, price, orderType, idTriangulo=0, cuenta=""):
+    async def newOrderSingle(self, clOrdId, symbol, side, quantity, price=0, orderType=2, idTriangulo=0, cuenta=""):
         logfix.info(
             f"newOrderSingle: {clOrdId} {symbol} {side} {quantity} {price} {orderType} {idTriangulo} {cuenta}")
         """
@@ -2123,7 +2123,8 @@ class Application(fix.Application):
         msg.setField(fix.ClOrdID(str(details['clOrdId'])))
         msg.setField(fix.OrderQty(details['quantity']))
         msg.setField(40, str(details['ordType']))
-        msg.setField(fix.Price(details['price']))
+        if orderType != 1:
+            msg.setField(fix.Price(details['price']))
         msg.setField(54, str(details['side']))
         msg.setField(59, str(0))
         msg.setField(fix.TransactTime())
