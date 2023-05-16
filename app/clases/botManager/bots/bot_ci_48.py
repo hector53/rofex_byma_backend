@@ -297,7 +297,7 @@ class botCi48(taskSeqManager):
             self.log.info(
                 f"saliendo del ciclo run forever del botBB con id: {self.id}")
 
-    async def run(self):
+    def run(self):
         try:
             self.threadCola = Thread(target=self.startCola)
             self.threadCola.start()

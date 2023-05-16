@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import gc
+import multiprocessing
 class botManager:
     def __init__(self):
         self.tasks = asyncio.Queue()
@@ -8,11 +9,15 @@ class botManager:
         self.log = logging.getLogger("botManager")
 
     async def add_task(self, task):
-        self.main_tasks[task.id] = task
+     #   self.main_tasks[task.id] = task
 
-        self.log.info(f"entrando a addtask del botManager: {task}, ya lo agregue al maintask: {self.main_tasks}")
-        await self.tasks.put(task)
-        task.taskToCancel = asyncio.create_task(task.run())
+      #  self.log.info(f"entrando a addtask del botManager: {task}, ya lo agregue al maintask: {self.main_tasks}")
+      #  await self.tasks.put(task)
+      #  task.taskToCancel = asyncio.create_task(task.run())
+
+        p = multiprocessing.Process(target=task)
+        p.start()
+        self.main_tasks[task.id] = p
         
 
     async def remove_task(self, task):

@@ -734,7 +734,7 @@ class client_request():
         try:
             response = await self.cancelar_orden(orderId, origClOrdId, side, quantity,
                                                  symbol)
-            if response["llegoRespuesta"] == True:
+            if response["llegoRespuesta"] == True and response["data"]["reject"]==False:
                 response = await self.nueva_orden(symbol, side, quantity, price, orderType)
                 return response
         except Exception as e:
