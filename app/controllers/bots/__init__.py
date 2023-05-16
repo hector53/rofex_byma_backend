@@ -94,6 +94,8 @@ class BotsController:
             opciones = getBotEjecutando["opciones"]
             if getBotEjecutando["status"]==0:
                 opciones = getBotEjecutando["opciones"]
+                if not "market" in opciones:
+                    opciones["market"] = False
                 if type_bot == 0:#triangulo
                     response = UtilsController.iniciar_bot_triangulo(id_fix, id_bot_ejecutando, cuenta, symbols, opciones, soloEscucharMercado)
                 if type_bot == 1:#CI-48
