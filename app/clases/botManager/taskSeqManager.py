@@ -13,10 +13,10 @@ class taskSeqManager(Cola):
         self.stop = asyncio.Event()
         self.pause_flag = False
         self.taskToCancel = None
-        self.log2 = logging.getLogger(f"taskSeqManager")
+        self.log = logging.getLogger(f"taskSeqManager")
 
     async def add_task(self, task):
-        self.log2.info(f"agregando task: {task}")
+        self.log.info(f"agregando task: {task}")
         await self.agregar_tarea(task)
 
     async def stopCola(self):

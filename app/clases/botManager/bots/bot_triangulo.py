@@ -10,6 +10,7 @@ from app.clases.class_client_request import client_request
 from app.clases.botManager.taskSeqManager import taskSeqManager
 class botTriangulo(taskSeqManager):
     def  __init__(self, futuro1, futuro2, pase, f, id_bot, cuenta, mongo) -> None:
+        super().__init__()
         self.fix = f
         self.name = f"bot_{id_bot}"
         self.id = id_bot
@@ -64,6 +65,10 @@ class botTriangulo(taskSeqManager):
         self.log = logging.getLogger(f"botLento_{id_bot}")
       #  self.suscribir_mercado()
         #funciones bot rapido 
+    async def detenerBot(self):
+        await self.stopCola()
+        self.threadCola = None
+        self.threadBB = None
 
     async def  calcular_limit_futuro1_ask(self, verificarFuturo1):
         self.log.info("entrando a calcular_limit_futuro1_ask")
@@ -94,7 +99,7 @@ class botTriangulo(taskSeqManager):
             self.log.info("voy a comprobar lo del spread")
             verificarFuturo1x =  await self.clientR.verificar_ordenes_futuro(self.botData["futuro1"], "BI", self._tickers[self.botData["futuro1"]]["BI"]) 
             if verificarFuturo1x["puedoOperar"]==True:
-                indiceFuturo1Bid = verificarFuturo1x["indice"]
+                indiceFuturo1Bid = verificarFuturo1x["indiceBookUsar"]
                 bookContrario = self._tickers[self.botData["futuro1"]]["BI"][indiceFuturo1Bid]["price"]
                 if float(bookContrario) - float(futuro1Ask) >=0:
                     self.log.info("tengo spread 0 o 0.1")
@@ -158,7 +163,7 @@ class botTriangulo(taskSeqManager):
             self.log.info("voy a comprobar lo del spread")
             verificarFuturo1x = await self.clientR.verificar_ordenes_futuro(self.botData["futuro1"], "OF", self._tickers[self.botData["futuro1"]]["OF"]) 
             if verificarFuturo1x["puedoOperar"]==True:
-                bookContrario = self._tickers[self.botData["futuro1"]]["OF"][verificarFuturo1x["indice"]]["price"]
+                bookContrario = self._tickers[self.botData["futuro1"]]["OF"][verificarFuturo1x["indiceBookUsar"]]["price"]
                 if float(bookContrario) - float(futuro1Bid) <=0.1:
                     self.log.info("tengo spread 0 o 0.1 por lo tanto poner el limit a lo mismo del bidfuturo1")
                     limitBidFuturo1 = futuro1Bid
@@ -238,7 +243,7 @@ class botTriangulo(taskSeqManager):
             self.log.info("voy a comprobar lo del spread")
             verificarFuturo1x = await self.clientR.verificar_ordenes_futuro(self.botData["futuro2"], "OF",self._tickers[self.botData["futuro2"]]["OF"]) 
             if verificarFuturo1x["puedoOperar"]==True:
-                bookContrario = self._tickers[self.botData["futuro2"]]["OF"][verificarFuturo1x["indice"]]["price"]
+                bookContrario = self._tickers[self.botData["futuro2"]]["OF"][verificarFuturo1x["indiceBookUsar"]]["price"]
                 if float(bookContrario) - float(futuro2Bid) <=0.1:
                     self.log.info("tengo spread 0 o 1 por lo tanto poner el limit a lo mismo del bidfuturo1")
                     limitBidFuturo2 = futuro2Bid
@@ -301,7 +306,7 @@ class botTriangulo(taskSeqManager):
             self.log.info("voy a comprobar lo del spread")
             verificarFuturo1x = await self.clientR.verificar_ordenes_futuro(self.botData["futuro2"], "BI", self._tickers[self.botData["futuro2"]]["BI"]) 
             if verificarFuturo1x["puedoOperar"]==True:
-                bookContrario = self._tickers[self.botData["futuro2"]]["BI"][verificarFuturo1x["indice"]]["price"]
+                bookContrario = self._tickers[self.botData["futuro2"]]["BI"][verificarFuturo1x["indiceBookUsar"]]["price"]
                 if float(bookContrario) - float(futuro2Ask) >=0:
                     self.log.info("tengo spread 0 o 1 por lo tanto poner el limit a lo mismo del bidfuturo1")
                     limitAskFuturo2 = futuro2Ask
@@ -399,9 +404,9 @@ class botTriangulo(taskSeqManager):
             verificarFuturo2 = await self.clientR.verificar_ordenes_futuro(self.botData["futuro2"], "BI", self._tickers[self.botData["futuro2"]]["BI"]) 
             verificarPase =  await self.clientR.verificar_ordenes_futuro(self.botData["paseFuturos"], "OF", self._tickers[self.botData["paseFuturos"]]["OF"]) 
             if verificarFuturo2["puedoOperar"]==True and verificarPase["puedoOperar"]==True:
-                self.botData["indices_futuros"][self.botData["futuro1"]] = {"BI": verificarPase["indice"]}
-                self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"OF": verificarPase["indice"]}
-                self.botData["indices_futuros"][self.botData["futuro2"]] = {"BI": verificarFuturo2["indice"]}
+                self.botData["indices_futuros"][self.botData["futuro1"]] = {"BI": verificarPase["indiceBookUsar"]}
+                self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"OF": verificarPase["indiceBookUsar"]}
+                self.botData["indices_futuros"][self.botData["futuro2"]] = {"BI": verificarFuturo2["indiceBookUsar"]}
                 self.log.info("si puedo crear orden en futuro1 bid")
                 calcularLimit = await self.calcular_limit_futuro1_bid(verificarFuturo1)
                 if calcularLimit>0:
@@ -472,9 +477,9 @@ class botTriangulo(taskSeqManager):
                 verificarPase =  await self.clientR.verificar_ordenes_futuro(self.botData["paseFuturos"], "BI", self._tickers[self.botData["paseFuturos"]]["BI"]) 
                 if verificarFuturo2["puedoOperar"]==True and verificarPase["puedoOperar"]==True:
                     self.log.info("tengo el ask2 y el bid del pase")
-                    self.botData["indices_futuros"][self.botData["futuro1"]] = {"OF": verificarFuturo1["indice"]}
-                    self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"BI": verificarPase["indice"]}
-                    self.botData["indices_futuros"][self.botData["futuro2"]] = {"OF": verificarFuturo2["indice"]}
+                    self.botData["indices_futuros"][self.botData["futuro1"]] = {"OF": verificarFuturo1["indiceBookUsar"]}
+                    self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"BI": verificarPase["indiceBookUsar"]}
+                    self.botData["indices_futuros"][self.botData["futuro2"]] = {"OF": verificarFuturo2["indiceBookUsar"]}
                     calcularLimit = await self.calcular_limit_futuro1_ask(verificarFuturo1)
                     if calcularLimit>0:
                         self.log.info("calcular limit es mayor a 0")
@@ -520,9 +525,9 @@ class botTriangulo(taskSeqManager):
             verificarFuturo2 = await self.clientR.verificar_ordenes_futuro(self.botData["futuro2"], "OF", self._tickers[self.botData["futuro2"]]["OF"]) 
             verificarPase =  await self.clientR.verificar_ordenes_futuro(self.botData["paseFuturos"], "BI", self._tickers[self.botData["paseFuturos"]]["BI"]) 
             if verificarFuturo2["puedoOperar"]==True and verificarPase["puedoOperar"]==True:
-                self.botData["indices_futuros"][self.botData["futuro1"]] = {"OF": verificarFuturo1["indice"]}
-                self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"BI": verificarPase["indice"]}
-                self.botData["indices_futuros"][self.botData["futuro2"]] = {"OF": verificarFuturo2["indice"]}
+                self.botData["indices_futuros"][self.botData["futuro1"]] = {"OF": verificarFuturo1["indiceBookUsar"]}
+                self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"BI": verificarPase["indiceBookUsar"]}
+                self.botData["indices_futuros"][self.botData["futuro2"]] = {"OF": verificarFuturo2["indiceBookUsar"]}
                 self.log.info("si puedo crear orden en futuro1 ask")
                 calcularLimit = await self.calcular_limit_futuro1_ask(verificarFuturo1)
                 if calcularLimit>0:
@@ -560,9 +565,9 @@ class botTriangulo(taskSeqManager):
                 verificarFuturo2 = await self.clientR.verificar_ordenes_futuro(self.botData["futuro1"], "BI", self._tickers[self.botData["futuro1"]]["BI"]) 
                 verificarPase =  await self.clientR.verificar_ordenes_futuro(self.botData["paseFuturos"], "BI", self._tickers[self.botData["paseFuturos"]]["BI"]) 
                 if verificarFuturo2["puedoOperar"]==True and verificarPase["puedoOperar"]==True:
-                    self.botData["indices_futuros"][self.botData["futuro2"]] = {"BI": verificarFuturo1["indice"]}
-                    self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"BI": verificarPase["indice"]}
-                    self.botData["indices_futuros"][self.botData["futuro1"]] = {"BI": verificarFuturo2["indice"]}
+                    self.botData["indices_futuros"][self.botData["futuro2"]] = {"BI": verificarFuturo1["indiceBookUsar"]}
+                    self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"BI": verificarPase["indiceBookUsar"]}
+                    self.botData["indices_futuros"][self.botData["futuro1"]] = {"BI": verificarFuturo2["indiceBookUsar"]}
                     calcularLimit = await self.calcular_limit_futuro2_bid(verificarFuturo1)
                     if calcularLimit>0:
                         self.log.info("moficicar")
@@ -609,9 +614,9 @@ class botTriangulo(taskSeqManager):
             verificarFuturo2 = await self.clientR.verificar_ordenes_futuro(self.botData["futuro1"], "BI", self._tickers[self.botData["futuro2"]]["BI"]) 
             verificarPase =  await self.clientR.verificar_ordenes_futuro(self.botData["paseFuturos"], "BI", self._tickers[self.botData["paseFuturos"]]["OF"]) 
             if verificarFuturo2["puedoOperar"]==True and verificarPase["puedoOperar"]==True:
-                self.botData["indices_futuros"][self.botData["futuro2"]] = {"BI": verificarPase["indice"]}
-                self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"BI": verificarPase["indice"]}
-                self.botData["indices_futuros"][self.botData["futuro1"]] = {"BI": verificarFuturo2["indice"]}
+                self.botData["indices_futuros"][self.botData["futuro2"]] = {"BI": verificarPase["indiceBookUsar"]}
+                self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"BI": verificarPase["indiceBookUsar"]}
+                self.botData["indices_futuros"][self.botData["futuro1"]] = {"BI": verificarFuturo2["indiceBookUsar"]}
                 self.log.info("si puedo crear orden en futuro2 bid")
                 calcularLimit = await self.calcular_limit_futuro2_bid(verificarFuturo1)
                 if calcularLimit>0:
@@ -651,9 +656,9 @@ class botTriangulo(taskSeqManager):
                 verificarFuturo2 = await self.clientR.verificar_ordenes_futuro(self.botData["futuro1"], "OF", self._tickers[self.botData["futuro1"]]["OF"]) 
                 verificarPase =  await self.clientR.verificar_ordenes_futuro(self.botData["paseFuturos"], "OF", self._tickers[self.botData["paseFuturos"]]["OF"]) 
                 if verificarFuturo2["status"]==True and verificarPase["status"]==True:
-                    self.botData["indices_futuros"][self.botData["futuro2"]] = {"OF": verificarFuturo1["indice"]}
-                    self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"OF": verificarPase["indice"]}
-                    self.botData["indices_futuros"][self.botData["futuro1"]] = {"OF": verificarFuturo2["indice"]}
+                    self.botData["indices_futuros"][self.botData["futuro2"]] = {"OF": verificarFuturo1["indiceBookUsar"]}
+                    self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"OF": verificarPase["indiceBookUsar"]}
+                    self.botData["indices_futuros"][self.botData["futuro1"]] = {"OF": verificarFuturo2["indiceBookUsar"]}
                     calcularLimit = await self.calcular_limit_futuro2_ask(verificarFuturo1)
                     if calcularLimit>0:
                         self.log.info("moficicar")
@@ -700,9 +705,9 @@ class botTriangulo(taskSeqManager):
             verificarFuturo2 = await self.clientR.verificar_ordenes_futuro(self.botData["futuro1"], "OF", self._tickers[self.botData["futuro1"]]["OF"]) 
             verificarPase =  await self.clientR.verificar_ordenes_futuro(self.botData["paseFuturos"], "OF", self._tickers[self.botData["paseFuturos"]]["OF"]) 
             if  verificarFuturo2["puedoOperar"]==True and verificarPase["puedoOperar"]==True:
-                self.botData["indices_futuros"][self.botData["futuro2"]] = {"OF": verificarPase["indice"]}
-                self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"OF": verificarPase["indice"]}
-                self.botData["indices_futuros"][self.botData["futuro1"]] = {"OF": verificarFuturo2["indice"]}
+                self.botData["indices_futuros"][self.botData["futuro2"]] = {"OF": verificarPase["indiceBookUsar"]}
+                self.botData["indices_futuros"][self.botData["paseFuturos"]] = {"OF": verificarPase["indiceBookUsar"]}
+                self.botData["indices_futuros"][self.botData["futuro1"]] = {"OF": verificarFuturo2["indiceBookUsar"]}
                 self.log.info("si puedo crear orden en futuro2 ask")
                 calcularLimit = await self.calcular_limit_futuro2_ask(verificarFuturo1)
                 if calcularLimit>0:
@@ -820,16 +825,17 @@ class botTriangulo(taskSeqManager):
             while not self.stop.is_set():
                 #   self.log.info("estoy en el ciclo inifito del bot")
                 if self.paused.is_set():
-                    self.log.info(f"el bot no esta en pause")
-                    task = await self.obtener_tarea()
-                    if task is not None:
-                        self.log.info(f"el bot tiene tareas")
-                        self.log.info(f" se va ejecutar esta tarea: {task}")
-                        self.marcar_completada(task)
-                        await self.execute_task(task)
-                        self.log.info(f"se completo la tarea: {task}")
-                    else:
-                        self.log.info(f"el bot no tiene tareas")
+                    if self.botData["soloEscucharMercado"] == False:
+                        self.log.info(f"el bot no esta en pause")
+                        task = await self.obtener_tarea()
+                        if task is not None:
+                            self.log.info(f"el bot tiene tareas")
+                            self.log.info(f" se va ejecutar esta tarea: {task}")
+                            self.marcar_completada(task)
+                            await self.execute_task(task)
+                            self.log.info(f"se completo la tarea: {task}")
+                        else:
+                            self.log.info(f"el bot no tiene tareas")
                 else:
                     self.log.info(f"el bot esta en pause")
                 await asyncio.sleep(0.1)
@@ -1125,7 +1131,7 @@ class botTriangulo(taskSeqManager):
             self.log.info("si tengo futuro ")
             size = orden["lastQty"]
             sideOrden = 2 #necesito hacer un buy limit con el precio del offer, entonces necesito el indice del offer
-            indiceFuturo = verifyF["indice"]
+            indiceFuturo = verifyF["indiceBookUsar"]
             if sideF=="OF":
                 sideOrden = 1
             priceFuturo = self._tickers[futuro][sideF][indiceFuturo]["price"]
@@ -1135,7 +1141,7 @@ class botTriangulo(taskSeqManager):
             verifyP = await self.clientR.verificar_ordenes_futuro(pase, sidePase, self._tickers[pase][sidePase])#verifico el valor del pase si puedo tomarlo
             if verifyP["status"]==True:
                 self.log.info("si tengo pase ")
-                indicePase = verifyP["indice"]
+                indicePase = verifyP["indiceBookUsar"]
                 precioPase = self._tickers[pase][sidePase][indicePase]["price"]
                 self.log.info(f"precioPase {precioPase}")
                 #calculo el precio limit para la orden de futuro 
@@ -1197,7 +1203,7 @@ class botTriangulo(taskSeqManager):
             verifyP = await self.clientR.verificar_ordenes_futuro(pase, sidePase, self._tickers[pase][sidePase])#verifico el valor del pase si puedo tomarlo
             if verifyP["status"]==True:
                 self.log.info("si tengo pase ") 
-                indicePase = verifyP["indice"]
+                indicePase = verifyP["indiceBookUsar"]
                 precioPase = self._tickers[pase][sidePase][indicePase]["price"]
                 self.log.info(f"precioPase {precioPase}")
                 #calculo el precio limit para la orden de futuro 
@@ -1378,7 +1384,7 @@ class botTriangulo(taskSeqManager):
             self.log.info("si tengo futuro ")
             size = orden["lastQty"]
             sideOrden = 2 #necesito hacer un buy limit con el precio del offer, entonces necesito el indice del offer
-            indiceFuturo = verifyF["indice"]
+            indiceFuturo = verifyF["indiceBookUsar"]
             if sideF=="OF":
                 sideOrden = 1
             priceFuturo = self._tickers[futuro][sideF][indiceFuturo]["price"]

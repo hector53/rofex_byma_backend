@@ -207,7 +207,7 @@ class MainTask():
             self.botManager.main_tasks[id_bot]._tickers[symbolTicker] = marketData
             self.log.info(f"tickers despues: {self.botManager.main_tasks[id_bot]._tickers[symbolTicker]}")
             self.log.info(f"ahora si agregamos tarea al bot para verificar puntas")
-            if self.botManager.main_tasks[id_bot].botData["botIniciado"]==True and self.botManager.main_tasks[id_bot].botData["soloEscucharMercado"]==False:
+            if self.botManager.main_tasks[id_bot].botData["botIniciado"]==True:
                 await self.botManager.main_tasks[id_bot].add_task(task)
             self.log.info(f"listo tarea agregada al bot")
             self.log.info(f"self.botManager.tasks: {self.botManager.tasks}")
