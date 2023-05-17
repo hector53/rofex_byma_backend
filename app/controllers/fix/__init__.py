@@ -17,6 +17,7 @@ class FixController:
 
     @staticmethod
     async def newOrderTest():
+        from app import fixM
       #  async def newOrderSingle(self, clOrdId, symbol, side, quantity, price, orderType, 
            #                      idTriangulo=0, cuenta=""):
         req_obj = request.get_json()

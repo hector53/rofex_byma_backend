@@ -1023,7 +1023,7 @@ class botCiCi(taskSeqManager):
             if self.botData["market"]==True:
                 size = orden["lastQty"]
                 clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
-                ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size,0, 1, clOrdId, 1)
+                ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size,1, 1, clOrdId, 1)
                 response = ordenNew
             else:
                 verifyF = await self.clientR.verificar_ordenes_futuro(symbolCheck, sideCheck, self._tickers[symbolCheck][sideCheck])
