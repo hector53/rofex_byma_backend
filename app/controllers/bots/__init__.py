@@ -47,6 +47,8 @@ class BotsController:
             if getBotEjecutando["status"]==0:
                 log.info(f"el bot esta desactivado asi q lo inicio")
                 opciones = getBotEjecutando["opciones"]
+                if not "market" in opciones:
+                    opciones["market"] = False
                 if type_bot == 0:#triangulo
                     response = await UtilsController.iniciar_bot_triangulo(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
                 if type_bot == 1:#CI-48
@@ -94,8 +96,10 @@ class BotsController:
             opciones = getBotEjecutando["opciones"]
             if getBotEjecutando["status"]==0:
                 opciones = getBotEjecutando["opciones"]
+                log.info(f"opciones: {opciones}")
                 if not "market" in opciones:
                     opciones["market"] = False
+                log.info(f"opciones: {opciones}")
                 if type_bot == 0:#triangulo
                     response = UtilsController.iniciar_bot_triangulo(id_fix, id_bot_ejecutando, cuenta, symbols, opciones, soloEscucharMercado)
                 if type_bot == 1:#CI-48
