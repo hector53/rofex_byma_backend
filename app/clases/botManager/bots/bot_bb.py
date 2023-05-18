@@ -52,6 +52,7 @@ class botBB(taskSeqManager):
             "contadorTareas": 0,
             # "ordenesBot": [],
             "idPegadas": 0,
+            "periodoBB": 180,
             "editandoBot": False,
             "type_side": 0,
             "sizeMax": 1,
@@ -163,9 +164,10 @@ class botBB(taskSeqManager):
           #  self.bb_48.append(bb_48_actual)
             self.log.info(f"bb_ci_lista: {bb_ci_lista}")
             self.log.info(f"bb_48_lista: {bb_48_lista}")
+            periodoBB = self.botData["periodoBB"]
 
-            asset_price_48h = bb_48_lista[-180:]
-            asset_price_CI = bb_ci_lista[-180:]
+            asset_price_48h = bb_48_lista[-periodoBB:]
+            asset_price_CI = bb_ci_lista[-periodoBB:]
             self.log.info(f"asset_price_48h: {asset_price_48h}")
             self.log.info(f"asset_price_CI: {asset_price_CI}")
             current_date = datetime.datetime.now().date()

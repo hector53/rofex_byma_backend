@@ -54,6 +54,7 @@ class botCi48(taskSeqManager):
             "idPegadas": 0,
             "editandoBot": False,
             "type_side": 0,
+            "periodoBB": 180,
             "sizeMax": 1,
             "market": False,
             "soloEscucharMercado": False,
@@ -164,8 +165,10 @@ class botCi48(taskSeqManager):
             self.log.info(f"bb_ci_lista: {bb_ci_lista}")
             self.log.info(f"bb_48_lista: {bb_48_lista}")
 
-            asset_price_48h = bb_48_lista[-180:]
-            asset_price_CI = bb_ci_lista[-180:]
+            periodoBB = self.botData["periodoBB"]
+
+            asset_price_48h = bb_48_lista[-periodoBB:]
+            asset_price_CI = bb_ci_lista[-periodoBB:]
             self.log.info(f"asset_price_48h: {asset_price_48h}")
             self.log.info(f"asset_price_CI: {asset_price_CI}")
             current_date = datetime.datetime.now().date()

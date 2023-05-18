@@ -49,6 +49,7 @@ class BotsController:
                 opciones = getBotEjecutando["opciones"]
                 if not "market" in opciones:
                     opciones["market"] = False
+                
                 if type_bot == 0:#triangulo
                     response = await UtilsController.iniciar_bot_triangulo(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
                 if type_bot == 1:#CI-48
@@ -56,6 +57,8 @@ class BotsController:
                 if type_bot == 2:#CI-CI
                     response = await UtilsController.iniciar_bot_ci_ci(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
                 if type_bot == 3:#CI-48-BB
+                    if not "periodoBB" in opciones:
+                        opciones["periodoBB"] = 180
                     response = await UtilsController.iniciar_bot_ci_48_bb(getFixTask.botManager, id_fix, id_bot_ejecutando,cuenta, symbols, opciones, soloEscucharMercado, getFixTask)
             else:
                 log.info(f"el bot esta en otro estado asi q lo actualizo")

@@ -16,6 +16,7 @@ class botTriangulo(taskSeqManager):
         self.id = id_bot
         self.clientR = client_request(f, id_bot, cuenta,mongo)
         self.threadCola = None
+        self.contadorOperada = 0
         self.botData = {
             "id_bot": id_bot,
             "cuenta": cuenta, 
@@ -872,369 +873,161 @@ class botTriangulo(taskSeqManager):
       
 
     async def actualizar_posiciones(self, details):
-        self.log.info(f"actualizando posiciones")
-        size = int(details["lastQty"])
-        if details["side"] == "Buy":
-            self.botData["posiciones"][details["symbol"]]["BI"] = self.botData["posiciones"][details["symbol"]]["BI"] + size
-        else:
-            self.botData["posiciones"][details["symbol"]]["OF"] = self.botData["posiciones"][details["symbol"]]["OF"] + size
-        self.log.info(f"posiciones actualizadas: {self.botData['posiciones']}")
+        try:
+            self.log.info(f"actualizando posiciones")
+            size = int(details["lastQty"])
+            if details["side"] == "Buy":
+                self.botData["posiciones"][details["symbol"]
+                                           ]["BI"] = self.botData["posiciones"][details["symbol"]]["BI"] + size
+            else:
+                self.botData["posiciones"][details["symbol"]
+                                           ]["OF"] = self.botData["posiciones"][details["symbol"]]["OF"] + size
+            self.log.info(
+                f"posiciones actualizadas: {self.botData['posiciones']}")
+        except Exception as e:
+            self.log.error(f"error actualizando posiciones: {e}")
 
-    async def  verificar_orden_operada(self, details, type=0):
-        self.log.info(f"entrando a verificar orden operada del triangulo {self.botData['id_bot']} ")
-        if int(type) == 0:
-            self.log.info("si es 0")
+    async def verificar_orden_operada(self, details, typeOrder, lastOrderID):
+        self.log.info(f"entrando a verificar_orden_operada. {details}")
+        response = False
+        try:
+            self.log.info(f"contador operadas: {self.botData['ordenOperada']}")
             await self.actualizar_posiciones(details)
-        if self.botData["triangulosPegados"]==False:
-            self.log.info(f"no hay triangulos pendientes en este triangulo {self.botData['symbols2']}" )
-            self.log.info("primero vamos a desintegrar el client order id para guardar el id de la orden y para comprobar si es de la estrategia o del bot ")
-            clOrdIdSplit = str(details["clOrdId"]).split("-")
-            if len(clOrdIdSplit)>1:
-                clOrderID = details["clOrdId"]
-                self.log.info("es una orden el bot")
-                nameSystem = clOrdIdSplit[0]#name of system FINTE
-                typeOrder = clOrdIdSplit[1] #N o B o C
-                cuentaFix =  clOrdIdSplit[2] 
-                id_bot = clOrdIdSplit[3]
-                idOrderGenerado =  clOrdIdSplit[4]
-                parentOperadaId = 0 #id order bot
-                if typeOrder == "N":
-                    self.log.info("es orden normal de la estrategia ")
-                    self.botData["ordenOperada"] = True
-                    self.log.info("ahora guardar los cambios en db ")
-                    await self.clientR.actualizar_order_by_change(details["orderId"], details)
-                    self.log.info("ahora operar los pasos 2 y 3")
-                    await self.operar_orden(details, idOrderGenerado)
+            self.log.info(
+                f"verificando orden operada del id_bot: {self.clientR.id_bot}")
+            orderId = details["orderId"]
+            clOrdId = details["clOrdId"]
+            activeOrder = False
+            if details["leavesQty"] > 0:
+                activeOrder = True
+            if typeOrder == "N":
+                self.log.info("es orden normal de la estrategia ")
+                self.log.info("ahora operar la contraria ")
+                await self.clientR.disable_order_status(orderId, clOrdId)
+                await self.clientR.save_order_details(details, activeOrder)
+                order = await self.operar_orden(details, lastOrderID)
+                self.log.info(
+                    f"llego respuesta de ordenes contrarias operadas: {order}")
+                if order["ordenNew"]["llegoRespuesta"] == True:
+                        #verificar si es colgada 
+                        if order["ordenNew"]["data"]["ordStatus"]=="NEW":
+                            #es colgada enviar notificacion 
+                            dataMd = {"type": "colgada", "details": order["ordenNew"]["data"]}
+                            self.fix.server_md.broadcast(str(dataMd))
+                if order["ordenPase"]["llegoRespuesta"] == True:
+                        #verificar si es colgada 
+                        if order["ordenPase"]["data"]["ordStatus"]=="NEW":
+                            #es colgada enviar notificacion 
+                            dataMd = {"type": "colgada", "details": order["ordenPase"]["data"]}
+                            self.fix.server_md.broadcast(str(dataMd))
+
+            elif typeOrder == "B":
+                self.log.info("es una orden B osea contraria")
+                await self.clientR.disable_order_status(orderId, clOrdId)
+                await self.clientR.save_order_details(details, activeOrder)
+            response = True
+        except Exception as e:
+            self.log.error(f"error verificando orden operada: {e}")
+        return response
+
+    async def operar_orden(self, orden, id_order):
+        self.log.info(f"entrando a operar orden")
+        response = {"ordenNew": {}, "ordenPase": {} }
+        try:
+            if orden["symbol"] == self.botData["futuro1"]:
+                self.log.info("futuro1")
+                if orden["side"] == "Buy":
+                    self.log.info("Buy")
+                    self.log.info("ahora operar la contraria pero en futuro2 OF ")
+                    response = await self.operar_orden_contraria(orden, self.botData["futuro2"], "BI", id_order, 2)
+                else:
+                    # es sell
+                    self.log.info("Sell")
+                    self.log.info("ahora operar la contraria pero en futuro2 BI ")
+                    response = await self.operar_orden_contraria(orden, self.botData["futuro2"], "OF", id_order, 1)
+            else:
+                # es byma48h
+                self.log.info("futuro2")
+                if orden["side"] == "Buy":
+                    self.log.info("Buy")
+                    self.log.info("ahora operar la contraria pero en futuro1 OF ")
+                    response = await self.operar_orden_contraria(orden, self.botData["futuro1"], "BI", id_order, 2)
+                else:
+                    # es sell
+                    self.log.info("Sell")
+                    self.log.info("ahora operar la contraria pero en futuro1 BI ")
+                    response = await self.operar_orden_contraria(orden, self.botData["futuro1"], "OF", id_order, 1)
+        except Exception as e:
+            self.log.error(f"error operando orden : {e}")
+        return response
+
+    async def operar_orden_contraria(self, orden, symbolCheck, sideCheck, id_order, sideOrder):
+        response = {"llegoRespuesta": False}
+        self.log.info(
+            f"operar orden contraria del id_bot: {self.clientR.id_bot}")
+        self.log.info(f"orden {orden}")
+        self.log.info(f"necesito el symbol: {symbolCheck}")
+        self.log.info(
+            f"necesito el side: {sideCheck} para poder hacer el market del otro lado")
+        self.log.info(f"id_order: {id_order}")
+        self.log.info(f"sideOrder: {sideOrder}")
+       
+        try:
+            if self.botData["market"]==True:
+                self.log.info(f"esta market mando a crear orden nueva y cancelar orden haberla en 2 hilos ")
+                size = orden["lastQty"]
+                clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
+                task1 = asyncio.create_task(self.clientR.nueva_orden(symbolCheck, sideOrder, size,1, 1, clOrdId, 1))
+                task2 = asyncio.create_task(self.clientR.nueva_orden(self.botData["paseFuturos"], sideOrder, size,1, 1, clOrdId, 1))
+                ordenNew = await task1
+                ordenPase = await task2
+                self.log.info(f"llegaron respuestas, ordennew: {ordenNew}, ordenPase: {ordenPase}")
+                response = {"ordenNew": ordenNew, "ordenPase": ordenPase }
+            else:
+                verifyF = await self.clientR.verificar_ordenes_futuro(symbolCheck, sideCheck, self._tickers[symbolCheck][sideCheck])
+                if verifyF["puedoOperar"] == True:
+                    self.log.info(
+                        "si hay ordenes en el simbolo y en el side que necesito")
+                    size = orden["lastQty"]
+                    indiceBook = verifyF["indiceBookUsar"]
+                    priceOrder = self._tickers[symbolCheck][sideCheck][indiceBook]["price"]
+                    self.log.info(f"priceFuturo: {priceOrder}")
+                    clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
+                #   self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
+                    task1 = asyncio.create_task(self.clientR.nueva_orden(symbolCheck, sideOrder, size, priceOrder, 2, clOrdId, 1))
+                    #necesito el precio del pase 
+                    precioPase = self._tickers[self.botData["paseFuturos"]][sideCheck][0]["price"]
+                    task2 = asyncio.create_task(self.clientR.nueva_orden(self.botData["paseFuturos"], sideOrder, size, precioPase, 2, clOrdId, 1))
+                   
+                    ordenNew = await task1
+                    ordenPase = await task2
+                    self.log.info(f"llegaron respuestas, ordennew: {ordenNew}, ordenPase: {ordenPase}")
                     
-                elif typeOrder == "B":
-                    parentOperadaId = clOrdIdSplit[2]
-                    self.log.info("es orden del bot paso 1 o 2")
-                    self.log.info("primero guardar en db ordenes ")
-                    self.log.info(f"""voy a verificar si es type 1, para ver si es una orden limit new,
-                    q me indica q es una orden pegada y guardar y activar lo de orden pegada 
-                    """)
-                    type_order = 1
-                    if type==1:
-                        type_order = 0
-                        self.log.info("si es type 1")
-                        await self.guardar_orden_pegada(details, clOrderID, parentOperadaId )
-                    newOrder = await self.clientR.guardar_orden_nueva_in_db(details, type_order, 1 )
-                    self.log.info("segundo, buscar la orden operada en db  ")
-                    buscar = await self.clientR.buscar_orden_operada(clOrderID)
-                    if buscar:
-                        size = buscar[11]
-                        orderLike = "B-"+str(clOrderID)
-                        self.log.info("si existe la orden operada ")
-                        self.log.info("ahora buscar en db por el id de la orden operada en las ordenes, para ver si ya se completo todo")
-                        getOrdenes = await self.clientR.buscar_ordenes_segundo_paso(orderLike)
-                        sizeF = 0
-                        sizeP = 0
-                        orderNew = False
-                        if getOrdenes:
-                            for x in getOrdenes:
-                                symbol = x[4]
-                                ordStatus = x[6]
-                                leavesQty = x[10]
-                                lastQty = x[11]
-                                self.log.info("ahora verificar si es futuro o pase")
-                                if symbol==self.botData["futuro1"] or symbol==self.botData["futuro2"]:
-                                    self.log.info("es futuro , sumar al sizeF")
-                                    sizeFuturo = 0
-                                    if ordStatus=="NEW":
-                                        self.log.info("es una orden limit nueva necesito el leavesQty")
-                                        sizeFuturo = int(leavesQty)
-                                    else:
-                                        self.log.info("es fille o medio filled necesito el lastQty")
-                                        sizeFuturo = int(lastQty)
-                                    sizeF+=sizeFuturo
-                                if symbol==self.botData["paseFuturos"]:
-                                    self.log.info("es pase , sumar al sizeP")
-                                    sizePase = 0
-                                    if ordStatus=="NEW":
-                                        self.log.info("es una orden limit nueva necesito el leavesQty")
-                                        sizePase = int(leavesQty)
-                                    else:
-                                        self.log.info("es fille o medio filled necesito el lastQty")
-                                        sizePase = int(lastQty)
-                                    sizeP+=sizePase
-                        self.log.info("ahora comparo los sizes para ver si ya se completo ")
-                        self.log.info(f"size:{size}, sizeF:{sizeF}, sizeP:{sizeP}")
-                        if size==sizeF and size == sizeP: 
-                            self.log.info("actualizar orden operada en db a status 0")
-                            if orderNew:
-                                self.log.info("es una orden pegada ")
-                            self.botData["ordenOperada"] = False
-                        else:
-                            self.log.info("todavia no se ha completado la orden operada con el paso 2 y 3")
-                    else:
-                        self.log.info("no existe la orden operada", parentOperadaId)
+                    response = {"ordenNew": ordenNew, "ordenPase": ordenPase }
+
                 else:
-                    self.log.info("es de otro lado q no es el bot")
-            else:
-                self.log.info("es una orden de otra vaina")
-        else:
-            self.log.info(f"si hay circulos pendientes {self.botData['pegados']}, {self.botData['symbols2']}"  )
-            self.log.info("verificar si la orden q llego me sirve para cerrar el circulo pegado")
-            clOrdIdSplit = str(details["clOrdId"]).split("-")
-            if len(clOrdIdSplit)>1:
-                self.log.info("es una orden el bot")
-                typeOrder = clOrdIdSplit[0]#"N or B"
-                clOrderID = clOrdIdSplit[1]#id de la orden
-                parentOperadaId = 0
-                if typeOrder == "N":
-                    self.log.info("es orden normal de la estrategia ")
-                    self.botData["ordenOperada"] = True
-                    cerrarTriangulo = await self.verificar_cerrar_triangulo(details, typeOrder, clOrderID)
-                    if cerrarTriangulo == False:
-                        self.log.info("la orden no me sirve para cerrar triangulo")
-                        self.log.info("ahora operar los pasos 2 y 3")
-                        await self.operar_orden(details, clOrderID)
-                        self.log.info("ahora guardar los cambios en db ")
-                        await self.clientR.actualizar_order_by_change(details["orderId"], details)
-                    else:
-                        self.log.info("ya hizo todo lo demas ahora guardo los cambios de la orden N")
-                        await self.clientR.actualizar_order_by_change(details["orderId"], details)
-                        
-                elif typeOrder == "C":
-                    self.log.info("es una orden C para cerrar un circulo")
-                    parentOperadaId = clOrdIdSplit[2]
-                    idPegada = clOrdIdSplit[3]
-                    idPrincipal = clOrdIdSplit[4]
-                    self.log.info("es orden del bot paso 1 o 2")
-                    self.log.info("primero guardar en db ordenes ")
-                    newOrder = await self.clientR.guardar_orden_nueva_in_db(details, 1, 1 )
-                    buscar = await self.clientR.buscar_orden_operada(clOrderID)
-                    if buscar:
-                        size = buscar[11]
-                        sizeF = int(details["lastQty"])
-                    
-                        self.log.info("ahora comparo los sizes para ver si ya se completo ")
-                        self.log.info(f"size:{size}, sizeF:{sizeF}")
-                        if size==sizeF:
-                            self.log.info("actualizar orden operada en db a status 0")
-                            await self.cancelar_orden_pegada(idPegada)
-                            await self.borrar_triangulo_pegado(clOrderID)
-                        #  clientIdPegada = "B-"+idPegada+"-"+idPrincipal
-                        time.sleep(0.2)
-                        self.botData["ordenOperada"] = False
-                        if len(self.botData["pegados"])==0:
-                            self.botData["triangulosPegados"] = False
-                            self.log.info(f"triangulos pegados = {self.botData['triangulosPegados']}" )
-                    else:
-                        self.log.info("todavia no se ha completado la orden operada con el paso 2 y 3")
-                elif typeOrder == "B":
-                    parentOperadaId = clOrdIdSplit[2]
-                    self.log.info("es orden del bot paso 1 o 2, pero tengo orden pegada")
-                    self.log.info("primero verificar si esta orden es una orden pegada  ")
-                    ordenPegada = await self.verify_orden_pegada(details)
-                    if ordenPegada["status"]==False:
-                        newOrder = await self.clientR.guardar_orden_nueva_in_db(details, 1, 1 )
-                        self.log.info(f"""voy a verificar si es type 1, para ver si es una orden limit new,
-                        q me indica q es una orden pegada y guardar y activar lo de orden pegada 
-                        """)
-                        if type==1:
-                            self.log.info("si es type 1")
-                            await self.guardar_orden_pegada(details, clOrderID, parentOperadaId )
-                        self.log.info("segundo, buscar la orden operada en db  ")
-                        buscar = await self.clientR.buscar_orden_operada(clOrderID)
-                        if buscar:
-                            size = buscar[11]
-                            orderLike = "B-"+str(clOrderID)
-                            self.log.info("si existe la orden operada ")
-                            self.log.info("ahora buscar en db por el id de la orden operada en las ordenes, para ver si ya se completo todo")
-                            getOrdenes = await self.clientR.buscar_ordenes_segundo_paso(orderLike)
-                            sizeF = 0
-                            sizeP = 0
-                            orderNew = False
-                            if getOrdenes:
-                                for x in getOrdenes:
-                                    symbol = x[4]
-                                    ordStatus = x[6]
-                                    leavesQty = x[10]
-                                    lastQty = x[11]
-                                    self.log.info("ahora verificar si es futuro o pase")
-                                    if symbol==self.botData["futuro1"] or symbol==self.botData["futuro2"]:
-                                        self.log.info("es futuro , sumar al sizeF")
-                                        sizeFuturo = 0
-                                        if ordStatus=="NEW":
-                                            self.log.info("es una orden limit nueva necesito el leavesQty")
-                                            sizeFuturo = int(leavesQty)
-                                        else:
-                                            self.log.info("es fille o medio filled necesito el lastQty")
-                                            sizeFuturo = int(lastQty)
-                                        sizeF+=sizeFuturo
-                                    if symbol==self.botData["paseFuturos"]:
-                                        self.log.info("es pase , sumar al sizeP")
-                                        sizePase = 0
-                                        if ordStatus=="NEW":
-                                            self.log.info("es una orden limit nueva necesito el leavesQty")
-                                            sizePase = int(leavesQty)
-                                        else:
-                                            self.log.info("es fille o medio filled necesito el lastQty")
-                                            sizePase = int(lastQty)
-                                        sizeP+=sizePase
-                            self.log.info("ahora comparo los sizes para ver si ya se completo ")
-                            self.log.info(f"size:{size}, sizeF:{sizeF}, sizeP:{sizeP}")
-                            if size==sizeF and size == sizeP: 
-                                self.log.info("actualizar orden operada en db a status 0")
-                                if orderNew:
-                                    self.log.info("es una orden pegada ")
-                                self.botData["ordenOperada"] = False
-                            else:
-                                self.log.info("todavia no se ha completado la orden operada con el paso 2 y 3")
-                    else:
-                        self.log.info("esta orden es una pegada")
-                        await self.clientR.actualizar_order_by_change(details["orderId"], details)
-                        indexPegado = ordenPegada["index"]
-                        if self.botData["pegados"][indexPegado]["ordenPegada"]["leavesQty"]==details["lastQty"]:
-                            self.botData["pegados"].pop(indexPegado)
-                            time.sleep(0.2)
-                        #    self.ordenOperada = False
-                            if len(self.botData["pegados"])==0:
-                                self.botData["triangulosPegados"] = False
-                                self.log.info(f"triangulos pegados = { self.botData['triangulosPegados']}" )
-                        else:
-                            self.log.info("fue medio filled todavia le falta ")
-                            self.botData["pegados"][indexPegado]["ordenPegada"] = details
-                else:
-                    self.log.info("es de otro lado q no es el bot")
-            else:
-                self.log.info("es una orden de otra vaina ")
+                    size = orden["lastQty"]
+                    self.log.info(
+                        f"no puedo operar xq no hay ordenes en el simbolo y en el side que necesito")
+                    sideForPrice = "BI"
+                    if sideCheck == "BI":
+                        sideForPrice = "OF"
+                    limit_price, volume_limit = self.calculate_limit_asset_price_48h(
+                        orden["price"], orden["lastQty"], sideForPrice)
+                    self.log.info(f"priceFuturo: {limit_price}")
+                    clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
+                #  self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
+                    task2 = asyncio.create_task(self.clientR.cancelar_orden_haberla(symbolCheck, sideOrder))
+                    precioPase = self._tickers[self.botData["paseFuturos"]][sideCheck][0]["price"]
+                    task2 = asyncio.create_task(self.clientR.nueva_orden(self.botData["paseFuturos"], sideOrder, size, precioPase, 2, clOrdId, 1))
+                    ordenNew = await task1
+                    ordenPase = await task2
+                    self.log.info(f"llegaron respuestas, ordennew: {ordenNew}, ordenPase: {ordenPase}")
+                    response = {"ordenNew": ordenNew, "ordenPase": ordenPase }
+        except Exception as e:
+            self.log.error(f"error operando orden contraria: {e}")
+        return response
 
-
-    async def  operar_orden(self, orden, idOperada):
-        if orden["symbol"]==self.botData["futuro2"]:
-            self.log.info("es futuro 2")
-            if orden["side"]=="Buy":
-                self.log.info("es una orden buy ")
-                ordenNew = await self.ejecutar_futuro_pase(self.botData["futuro1"], "BI",  self.botData["paseFuturos"], "BI", orden, idOperada )
-
-            if orden["side"]=="Sell":
-                self.log.info("es una orden sell ")
-                ordenNew = await self.ejecutar_futuro_pase(self.botData["futuro1"], "OF",  self.botData["paseFuturos"], "OF", orden, idOperada )
-
-        if orden["symbol"]==self.botData["futuro1"]:
-            self.log.info("es futuro1")
-            if orden["side"]=="Buy":
-                self.log.info("es una orden buy ")
-                ordenNew = await self.ejecutar_futuro_pase(self.botData["futuro2"], "BI",  self.botData["paseFuturos"], "OF", orden, idOperada )
-               
-            if orden["side"]=="Sell":
-                self.log.info("es una orden sell ")
-                ordenNew = await self.ejecutar_futuro_pase(self.botData["futuro2"], "OF",  self.botData["paseFuturos"], "BI", orden, idOperada )
-    async def  ejecutar_futuro_pase(self, futuro, sideF,  pase, sidePase, orden, idOperada ):
-        self.log.info("hola ejecutar futuro pase ")
-        #ejemplo me tomaron futuro1 sell 
-        self.log.info("verificar futuro ")
-        verifyF = await self.clientR.verificar_ordenes_futuro(futuro, sideF, self._tickers[futuro][sideF])
-        if verifyF["status"]==True:
-            self.log.info("si tengo futuro ")
-            size = orden["lastQty"]
-            sideOrden = 2 #necesito hacer un buy limit con el precio del offer, entonces necesito el indice del offer
-            indiceFuturo = verifyF["indiceBookUsar"]
-            if sideF=="OF":
-                sideOrden = 1
-            priceFuturo = self._tickers[futuro][sideF][indiceFuturo]["price"]
-            self.log.info(f"priceFuturo: {priceFuturo}")
-            #antes de hace rla orden necesito el precio del pase 
-            self.log.info("ahora voy a verificar pase ")
-            verifyP = await self.clientR.verificar_ordenes_futuro(pase, sidePase, self._tickers[pase][sidePase])#verifico el valor del pase si puedo tomarlo
-            if verifyP["status"]==True:
-                self.log.info("si tengo pase ")
-                indicePase = verifyP["indiceBookUsar"]
-                precioPase = self._tickers[pase][sidePase][indicePase]["price"]
-                self.log.info(f"precioPase {precioPase}")
-                #calculo el precio limit para la orden de futuro 
-                precioLimit = ( float(orden["price"]) - float(precioPase) ) + self.botData["varGan"] #futuro2 buy
-                if orden["side"]=="Sell":
-                    precioLimit = ( float(orden["price"]) - float(precioPase) ) - self.botData["varGan"] #futuro2 Sell
-                if priceFuturo >= precioLimit:
-                        precioLimit = priceFuturo
-
-                if orden["symbol"]==self.botData["futuro1"]:
-                    precioLimit = ( float(orden["price"]) + float(precioPase) ) - self.botData["varGan"] #futuro1 sell 
-                    if orden["side"]=="Buy":
-                        precioLimit = ( float(orden["price"]) + float(precioPase) ) + self.botData["varGan"] #futuro1 buy 
-                    if priceFuturo <= precioLimit:
-                        precioLimit = priceFuturo
-                #314 <= 314.3 #entonces hago el limit a precio de futuro 
-                clOrdId = self.clientR.fix.getNextOrderBotID(self.botData["cuenta"],self.botData["id_bot"], idOperada)
-                self.botData["ordenesBot"].append({"idOperada":idOperada, "clOrdId": clOrdId, "size": size })
-                ordenFuturo = self.clientR.fix.newOrderSingle(clOrdId,futuro, sideOrden, size, precioLimit, 2 )
-                clOrdId2 = self.clientR.fix.getNextOrderBotID(self.botData["cuenta"],self.botData["id_bot"], idOperada)
-                self.botData["ordenesBot"].append({"idOperada":idOperada, "clOrdId": clOrdId2, "size": size})
-                sideP = 2 
-                if sidePase == "OF":
-                    sideP = 1
-                ordenPase = self.clientR.fix.newOrderSingle(clOrdId2,pase, sideP, size, precioPase, 2 )
-            else:
-                self.log.info(f"no tengo pase , entonces puedo poner una limit en el pase {futuro}")
-                precioPase = 0
-                if orden["symbol"]==self.botData["futuro1"]:#quiere decir q la operada es futuro1
-                    precioPase = float(priceFuturo) - float(orden["price"])
-                else:
-                    precioPase = float(orden["price"]) - float(priceFuturo)
-                self.log.info(f"precioPase {precioPase}")
-                #calculo el precio limit para la orden de futuro 
-                precioLimit = ( float(orden["price"]) - float(precioPase) ) + self.botData["varGan"] #futuro2 buy
-                if orden["side"]=="Sell":
-                    precioLimit = ( float(orden["price"]) - float(precioPase) ) - self.botData["varGan"] #futuro2 Sell
-                if priceFuturo >= precioLimit:
-                        precioLimit = priceFuturo
-
-                if orden["symbol"]==self.botData["futuro1"]:
-                    precioLimit = ( float(orden["price"]) + float(precioPase) ) - self.botData["varGan"] #futuro1 sell 
-                    if orden["side"]=="Buy":
-                        precioLimit = ( float(orden["price"]) + float(precioPase) ) + self.botData["varGan"] #futuro1 buy 
-                    if priceFuturo <= precioLimit:
-                        precioLimit = priceFuturo
-                #314 <= 314.3 #entonces hago el limit a precio de futuro 
-                clOrdId = self.clientR.fix.getNextOrderBotID(self.botData["cuenta"],self.botData["id_bot"], idOperada)
-                self.botData["ordenesBot"].append({"idOperada":idOperada, "clOrdId": clOrdId, "size": size })
-                ordenFuturo = self.clientR.fix.newOrderSingle(clOrdId,futuro, sideOrden, size, precioLimit, 2 )
-                clOrdId2 = self.clientR.fix.getNextOrderBotID(self.botData["cuenta"],self.botData["id_bot"], idOperada)
-                self.botData["ordenesBot"].append({"idOperada":idOperada, "clOrdId": clOrdId2, "size": size})
-                sideP = 2 
-                if sidePase == "OF":
-                    sideP = 1
-                ordenPase = self.clientR.fix.newOrderSingle(clOrdId2,pase, sideP, size, precioPase, 2 )
-        else:
-            self.log.info("no tengo futuro , entonces verifico si tengo pase ")
-            verifyP = await self.clientR.verificar_ordenes_futuro(pase, sidePase, self._tickers[pase][sidePase])#verifico el valor del pase si puedo tomarlo
-            if verifyP["status"]==True:
-                self.log.info("si tengo pase ") 
-                indicePase = verifyP["indiceBookUsar"]
-                precioPase = self._tickers[pase][sidePase][indicePase]["price"]
-                self.log.info(f"precioPase {precioPase}")
-                #calculo el precio limit para la orden de futuro 
-                precioLimit = ( float(orden["price"]) - float(precioPase) ) + self.botData["varGan"] #futuro2 buy
-                if orden["side"]=="Sell":
-                    precioLimit = ( float(orden["price"]) - float(precioPase) ) - self.botData["varGan"] #futuro2 Sell
-                if priceFuturo >= precioLimit:
-                        precioLimit = priceFuturo
-
-                if orden["symbol"]==self.botData["futuro1"]:
-                    precioLimit = ( float(orden["price"]) + float(precioPase) ) - self.botData["varGan"] #futuro1 sell 
-                    if orden["side"]=="Buy":
-                        precioLimit = ( float(orden["price"]) + float(precioPase) ) + self.botData["varGan"] #futuro1 buy 
-                    if priceFuturo <= precioLimit:
-                        precioLimit = priceFuturo
-                #314 <= 314.3 #entonces hago el limit a precio de futuro 
-                clOrdId = self.clientR.fix.getNextOrderBotID(self.botData["cuenta"],self.botData["id_bot"], idOperada)
-                self.botData["ordenesBot"].append({"idOperada":idOperada, "clOrdId": clOrdId, "size": size })
-                ordenFuturo = self.clientR.fix.newOrderSingle(clOrdId,futuro, sideOrden, size, precioLimit, 2 )
-                clOrdId2 = self.clientR.fix.getNextOrderBotID(self.botData["cuenta"],self.botData["id_bot"], idOperada)
-                self.botData["ordenesBot"].append({"idOperada":idOperada, "clOrdId": clOrdId2, "size": size})
-                sideP = 2 
-                if sidePase == "OF":
-                    sideP = 1
-                ordenPase = self.clientR.fix.newOrderSingle(clOrdId2,pase, sideP, size, precioPase, 2 )
-            else:
-                self.log.info("no tengo pase ni futuro entonces marco como status 4")
-                await self.clientR.update_variable_operada(idOperada, 4)
-        return {"status": True}
-    
-    
                         
     async def  guardar_orden_pegada(self,details, idPrincipal, idPegada ):
         self.log.info("guardar_orden_pegada")
