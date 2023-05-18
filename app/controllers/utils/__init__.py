@@ -269,7 +269,7 @@ class UtilsController:
         return response
 
 
-    async def editar_bot_ci_48(id_bot, fix, opciones):
+    async def editar_bot_triangulo(id_bot, fix, opciones):
         from app import fixM
         response = {"status": False}
         id_fix = fix["user"]
