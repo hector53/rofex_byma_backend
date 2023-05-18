@@ -158,7 +158,7 @@ class BotsController:
             # edit bot ejecutandose
             type_bot = int(req_obj["type_bot"])
             if type_bot == 0:
-                response = UtilsController.editar_bot_triangulo(
+                response = await UtilsController.editar_bot_triangulo(
                     id_bot, fix, opciones)
             if type_bot == 1:
                 response = await UtilsController.editar_bot_ci_48(id_bot, fix, opciones)
