@@ -178,7 +178,7 @@ class BotsController:
         fix=req_obj["fix"]
          
         id_bot = x["id_bot"]
-        if fix["user"] in fixM.main_tasks and id_bot in fixM.main_tasks[fix["user"]].botManager.main_tasks:
+        if fix["user"] in fixM.main_tasks and id_bot in fixM.main_tasks[fix["user"]].botManager.main_tasks and fixM.main_tasks[fix["user"]].botManager.main_tasks[id_bot].botData["soloEscucharMercado"]==False:
             #si esta activa la sesion y el bot tambien 
             task = await UtilsController.cancelar_orden_async(fix["user"], id_bot, x["orderId"], x["clOrdId"], x["side"], 
                                                               x["leavesQty"], x["symbol"], x["cuenta"])
