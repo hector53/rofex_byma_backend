@@ -20,6 +20,9 @@ app.add_url_rule('/api/add_bot', view_func=BotsController.add_bot, methods=['POS
 app.add_url_rule('/api/editBot', view_func=BotsController.edit_bot, methods=['POST'] )
 app.add_url_rule('/api/deleteBot/<string:id>', view_func=BotsController.deleteBot, methods=['DELETE'] )
 app.add_url_rule('/api/bot_data_charts/<string:id>', view_func=BotsController.bot_data_charts, methods=['POST'] )
+app.add_url_rule('/api/cancel_order_manual', view_func=BotsController.cancel_order_manual, methods=['POST'] )
+
+
 
 ####CUENTAS FIX####
 app.add_url_rule('/api/cuentas_fix', view_func=CuentasFixController.index)

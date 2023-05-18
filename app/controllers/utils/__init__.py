@@ -231,15 +231,13 @@ class UtilsController:
                         log.info(f"ordenes: {ordenesBorrar}")
                         log.info(f"hay {len(ordenesBorrar)} ordenes")
                         contadorOrdenesCanceladas = 0
-
+                        tasks = []
                         for x in ordenesBorrar:
                             log.info(f"borrar orden: {x}")
-                            result = await UtilsController.cancelar_orden_async(
-                                id_fix, id_bot, x["orderId"], x["clOrdId"], x["side"], x["leavesQty"], x["symbol"], cuenta)
-                            if result["llegoRespuesta"] == True:
-                                contadorOrdenesCanceladas += 1
-                        log.info(
-                            f"se cancelaron: {contadorOrdenesCanceladas} ordenes")
+                            task = asyncio.create_task(UtilsController.cancelar_orden_async(
+                                id_fix, id_bot, x["orderId"], x["clOrdId"], x["side"], x["leavesQty"], x["symbol"], cuenta))
+                            tasks.append(task)
+                        await asyncio.gather(*tasks)
 
                     log.info(
                         f"botManager Yasks: {getFixTask.botManager.tasks}")
