@@ -19,7 +19,7 @@ class botCi48(taskSeqManager):
         self._tickers: DefaultDict[str, Dict[str, float]] = defaultdict(dict)
         self.name = f"bot_{id_bot}"
         self.id = id_bot
-        self.log = logging.getLogger(f"botBB{id_bot}")
+        self.log = logging.getLogger(f"botCI48{id_bot}")
         # instancia de la clase client_request
         self.clientR = client_request(f, id_bot, cuenta, mongo)
         self.bb_ci = []
@@ -551,6 +551,7 @@ class botCi48(taskSeqManager):
                 else:
                     self.log.info("cancelar orden haberla todo depende :D  ")
 
+
             else:
                 self.log.info("no tengo orden creada")
                 self.log.info(f"posiciones: {self.botData['posiciones']}")
@@ -609,6 +610,7 @@ class botCi48(taskSeqManager):
                             self.log.warning(f"paused esta activo")
                             return
                         # creo la orden
+                        
                         ordenNueva = await self.clientR.nueva_orden(self.botData["byma48h"], sideOrder, volume_limit_CI, limit_price_CI, 2)
                         self.log.info(f"orden nueva {ordenNueva}")
                     else:
@@ -776,8 +778,12 @@ class botCi48(taskSeqManager):
                         if not self.paused.is_set():
                             self.log.warning(f"paused esta activo")
                             return
-                        cancelarHaberla = await self.clientR.cancelar_orden_haberla(self.botData["byma48h"], sideOrder)
-                        self.log.info(f"cancelarHaberla: {cancelarHaberla}")
+                        #voy a cancelarla solo si yo estoy de primero en el book
+                        self.log.info(f"orden mia: {orden}, primero book: {self._tickers[self.botData['bymaCI']][sideBook][0]}")
+                        if orden["price"]==self._tickers[self.botData["bymaCI"]][sideBook][0]["price"]:
+                            self.log.info(f"mando a borrar 48 xq estoy de primero en el book")
+                            cancelarHaberla = await self.clientR.cancelar_orden_haberla(self.botData["byma48h"], sideOrder)
+                            self.log.info(f"cancelarHaberla: {cancelarHaberla}")
 
             else:
                 self.log.info("no tengo orden creada")
@@ -1002,9 +1008,14 @@ class botCi48(taskSeqManager):
 
         try:
             if self.botData["market"]==True:
+                self.log.info(f"esta market mando a crear orden nueva y cancelar orden haberla en 2 hilos ")
                 size = orden["lastQty"]
                 clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
-                ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size,1, 1, clOrdId, 1)
+                task2 = asyncio.create_task(self.clientR.cancelar_orden_haberla(symbolCheck, sideOrder))
+                task1 = asyncio.create_task(self.clientR.nueva_orden(symbolCheck, sideOrder, size,1, 1, clOrdId, 1))
+                ordenNew = await task1
+                cancelarOrdenhaberla = await task2
+                self.log.info(f"llegaron respuestas, ordennew: {ordenNew}, cancelarOrdenhaberla: {cancelarOrdenhaberla}")
                 response = ordenNew
             else:
                 verifyF = await self.clientR.verificar_ordenes_futuro(symbolCheck, sideCheck, self._tickers[symbolCheck][sideCheck])
@@ -1017,8 +1028,12 @@ class botCi48(taskSeqManager):
                     self.log.info(f"priceFuturo: {priceOrder}")
                     clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
                 #   self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
-                    ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size, priceOrder, 2, clOrdId, 1)
-                    self.log.info(f"ordenNew: {ordenNew}")
+                    task2 = asyncio.create_task(self.clientR.cancelar_orden_haberla(symbolCheck, sideOrder))
+                    task1 = asyncio.create_task(self.clientR.nueva_orden(symbolCheck, sideOrder, size, priceOrder, 2, clOrdId, 1))
+                    ordenNew = await task1
+                    cancelarOrdenhaberla = await task2
+                    self.log.info(f"llegaron respuestas, ordennew: {ordenNew}, cancelarOrdenhaberla: {cancelarOrdenhaberla}")
+                    
                     response = ordenNew
 
                 else:
@@ -1033,8 +1048,12 @@ class botCi48(taskSeqManager):
                     self.log.info(f"priceFuturo: {limit_price}")
                     clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
                 #  self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
-                    ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size, limit_price, 2, clOrdId, 1)
-                    self.log.info(f"ordenNew: {ordenNew}")
+                    task2 = asyncio.create_task(self.clientR.cancelar_orden_haberla(symbolCheck, sideOrder))
+                    task1 = asyncio.create_task(self.clientR.nueva_orden(symbolCheck, sideOrder, size, limit_price, 2, clOrdId, 1))
+                    
+                    ordenNew = await task1
+                    cancelarOrdenhaberla = await task2
+                    self.log.info(f"llegaron respuestas, ordennew: {ordenNew}, cancelarOrdenhaberla: {cancelarOrdenhaberla}")
                     response = ordenNew
         except Exception as e:
             self.log.error(f"error operando orden contraria: {e}")

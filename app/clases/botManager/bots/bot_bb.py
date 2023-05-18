@@ -1018,11 +1018,17 @@ class botBB(taskSeqManager):
             f"necesito el side: {sideCheck} para poder hacer el market del otro lado")
         self.log.info(f"id_order: {id_order}")
         self.log.info(f"sideOrder: {sideOrder}")
+
         try:
             if self.botData["market"]==True:
+                self.log.info(f"esta market mando a crear orden nueva y cancelar orden haberla en 2 hilos ")
                 size = orden["lastQty"]
                 clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
-                ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size,1, 1, clOrdId, 1)
+                task2 = asyncio.create_task(self.clientR.cancelar_orden_haberla(symbolCheck, sideOrder))
+                task1 = asyncio.create_task(self.clientR.nueva_orden(symbolCheck, sideOrder, size,1, 1, clOrdId, 1))
+                ordenNew = await task1
+                cancelarOrdenhaberla = await task2
+                self.log.info(f"llegaron respuestas, ordennew: {ordenNew}, cancelarOrdenhaberla: {cancelarOrdenhaberla}")
                 response = ordenNew
             else:
                 verifyF = await self.clientR.verificar_ordenes_futuro(symbolCheck, sideCheck, self._tickers[symbolCheck][sideCheck])
@@ -1035,8 +1041,12 @@ class botBB(taskSeqManager):
                     self.log.info(f"priceFuturo: {priceOrder}")
                     clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
                 #   self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
-                    ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size, priceOrder, 2, clOrdId, 1)
-                    self.log.info(f"ordenNew: {ordenNew}")
+                    task2 = asyncio.create_task(self.clientR.cancelar_orden_haberla(symbolCheck, sideOrder))
+                    task1 = asyncio.create_task(self.clientR.nueva_orden(symbolCheck, sideOrder, size, priceOrder, 2, clOrdId, 1))
+                    ordenNew = await task1
+                    cancelarOrdenhaberla = await task2
+                    self.log.info(f"llegaron respuestas, ordennew: {ordenNew}, cancelarOrdenhaberla: {cancelarOrdenhaberla}")
+                    
                     response = ordenNew
 
                 else:
@@ -1051,8 +1061,12 @@ class botBB(taskSeqManager):
                     self.log.info(f"priceFuturo: {limit_price}")
                     clOrdId = await self.clientR.getNextOrderBotID(self.botData["cuenta"], self.botData["id_bot"], id_order)
                 #  self.botData["ordenesBot"].append({"idOperada":id_order, "clOrdId": clOrdId, "size": size })
-                    ordenNew = await self.clientR.nueva_orden(symbolCheck, sideOrder, size, limit_price, 2, clOrdId, 1)
-                    self.log.info(f"ordenNew: {ordenNew}")
+                    task2 = asyncio.create_task(self.clientR.cancelar_orden_haberla(symbolCheck, sideOrder))
+                    task1 = asyncio.create_task(self.clientR.nueva_orden(symbolCheck, sideOrder, size, limit_price, 2, clOrdId, 1))
+                    
+                    ordenNew = await task1
+                    cancelarOrdenhaberla = await task2
+                    self.log.info(f"llegaron respuestas, ordennew: {ordenNew}, cancelarOrdenhaberla: {cancelarOrdenhaberla}")
                     response = ordenNew
         except Exception as e:
             self.log.error(f"error operando orden contraria: {e}")

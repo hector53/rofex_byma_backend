@@ -1,5 +1,6 @@
-falta activar el rofex api rest 
-mongo db en client request 
-la consulta de balance que se hacia con el bot manual, hacerlo en el mismo bot en la funcion 
-que va ser tambien para la bb
-el fix manual no va llevar ciclo infinito 
+probar bot ci 48 lo nuevo de contraria mas cancelar 
+en bot de triangulo hacer lo de orden operada 
+hacerlo igual q los otros bots , para operar la contraria usamos tasks para ejecutar las 2 op a la vez
+cuando va ejecutar una contraria verificamos si tenemos una pegada en el pase 
+y verificamos si con la que acaban de tomar mas la contraria del futuro podemos calzar de seri asi no ejecutamos el pase de la contraria 
+y cancelamos la pendiente 
